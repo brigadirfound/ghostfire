@@ -25,6 +25,13 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#7ec8e8');
 scene.fog = new THREE.Fog('#7ec8e8', 40, 90);
 
+// процедурное окружение для металла 3D-пушек (PBR без внешних ассетов)
+import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+});
+
 const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.05, 200);
 scene.add(camera);
 

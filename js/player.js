@@ -48,8 +48,8 @@ export class Player {
     // view-модели всех пушек, показываем текущую
     this.viewModels = WEAPONS.map(w => {
       const m = buildWeaponModel(w.id, this.skin);
-      m.scale.setScalar(0.9);
-      m.position.set(0.28, -0.26, -0.45);
+      m.scale.setScalar(0.75);
+      m.position.set(0.3, -0.3, -0.5);
       m.visible = false;
       this.camera.add(m);
       return m;
@@ -171,13 +171,15 @@ export class Player {
     this.cooldown = Math.max(0, this.cooldown - dt);
     const w = WEAPONS[this.weapon];
     if (this.weapon === RAILGUN) {
-      if (this.input.fire && this.cooldown <= 0) {
-        if (!this.charging) { this.charging = true; this.charge = 0; Sound.railCharge(w.charge); }
+      // клик запускает зарядку; выстрел случится сам через 0.8с, даже если отпустить
+      if (!this.charging && this.input.fire && this.cooldown <= 0) {
+        this.charging = true;
+        this.charge = 0;
+        Sound.railCharge(w.charge);
+      }
+      if (this.charging) {
         this.charge += dt;
         if (this.charge >= w.charge) { this._fire(w); this.charging = false; this.charge = 0; }
-      } else {
-        this.charging = false;
-        this.charge = 0;
       }
     } else if (this.input.fire && this.cooldown <= 0) {
       this._fire(w);
@@ -188,8 +190,8 @@ export class Player {
     this._vmKick = Math.max(0, this._vmKick - dt * 3);
     this._bobT += dt * (Math.hypot(this.vel.x, this.vel.z) > 1 && this.onGround ? 10 : 0);
     const vm = this.viewModels[this.weapon];
-    vm.position.z = -0.45 + this._vmKick;
-    vm.position.y = -0.26 + Math.sin(this._bobT) * 0.012;
+    vm.position.z = -0.5 + this._vmKick;
+    vm.position.y = -0.3 + Math.sin(this._bobT) * 0.012;
 
     // --- камера ---
     this.camera.position.set(this.pos.x, this.pos.y + MOVE.eye, this.pos.z);
