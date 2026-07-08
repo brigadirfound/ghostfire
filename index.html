@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GHOSTFIRE</title>
+<style>
+  :root {
+    --accent: #ff5533;
+    --accent2: #33ddff;
+    --bg: #101418;
+    --panel: rgba(16, 20, 24, 0.92);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
+  #game-canvas { position: fixed; inset: 0; display: block; }
+
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: var(--panel); z-index: 20; }
+  .hidden { display: none !important; }
+
+  .logo { font-size: clamp(42px, 9vw, 84px); font-weight: 900; letter-spacing: 4px; color: var(--accent);
+    text-shadow: 4px 4px 0 #000, 0 0 40px rgba(255,85,51,.5); font-style: italic; }
+  .logo span { color: var(--accent2); }
+  .subtitle { opacity: .7; margin-top: -12px; margin-bottom: 12px; }
+
+  .btn { min-width: 240px; padding: 14px 28px; font-size: 20px; font-weight: 700; color: #fff;
+    background: #232a33; border: 3px solid #3a4450; border-radius: 6px; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 1px; transition: transform .06s, border-color .1s; }
+  .btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .btn.primary { background: var(--accent); border-color: #ff7755; }
+  .btn.small { min-width: 140px; padding: 8px 16px; font-size: 15px; }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  h2 { font-size: 28px; text-transform: uppercase; letter-spacing: 2px; }
+  .map-card { width: 200px; padding: 14px; background: #232a33; border: 3px solid #3a4450; border-radius: 6px; cursor: pointer; text-align: center; }
+  .map-card:hover, .map-card.selected { border-color: var(--accent2); }
+  .map-card .map-name { font-weight: 700; font-size: 18px; }
+  .map-card .map-desc { font-size: 13px; opacity: .7; margin-top: 6px; }
+
+  .ghost-card { width: min(420px, 88vw); padding: 12px 18px; background: #232a33; border: 3px solid #3a4450; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .ghost-card:hover { border-color: var(--accent); }
+  .ghost-card .gname { font-weight: 700; font-size: 18px; }
+  .ghost-card .gdesc { font-size: 13px; opacity: .7; }
+  .ghost-card .gdiff { color: var(--accent); font-weight: 900; font-size: 20px; }
+
+  textarea#challenge-input { width: min(420px, 88vw); height: 90px; background: #181d23; color: #9fd; border: 2px solid #3a4450; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; resize: none; }
+
+  .setting-row { display: flex; justify-content: space-between; align-items: center; width: min(420px, 88vw); padding: 10px 0; border-bottom: 1px solid #2a3038; }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 22px; height: 22px; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 3px #000; }
+  #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+  #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+  #crosshair.charging::before, #crosshair.charging::after { background: var(--accent2); }
+
+  #hp-bar { position: absolute; left: 20px; bottom: 20px; width: 220px; }
+  #hp-fill { height: 22px; background: linear-gradient(90deg, #ff3322, #ff7744); border-radius: 4px; transition: width .15s; box-shadow: 0 0 8px rgba(255,60,30,.6); }
+  #hp-bar .frame { border: 3px solid #fff3; border-radius: 6px; padding: 2px; background: #0008; }
+  #hp-num { font-size: 26px; font-weight: 900; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; }
+
+  #weapon-label { position: absolute; right: 20px; bottom: 20px; text-align: right; font-size: 22px; font-weight: 900; text-transform: uppercase; text-shadow: 2px 2px 0 #000; }
+  #score-mini { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 900; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; background: #0006; padding: 4px 18px; border-radius: 8px; }
+  #hitmarker { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) rotate(45deg); width: 30px; height: 30px; opacity: 0; }
+  #hitmarker::before, #hitmarker::after { content:""; position:absolute; background:#ff4433; }
+  #hitmarker::before { left:50%; top:0; width:3px; height:100%; transform:translateX(-50%); }
+  #hitmarker::after { top:50%; left:0; height:3px; width:100%; transform:translateY(-50%); }
+  #hitmarker.pop { animation: hitpop .18s ease-out; }
+  @keyframes hitpop { 0% { opacity:1; transform:translate(-50%,-50%) rotate(45deg) scale(1.4);} 100% { opacity:0; transform:translate(-50%,-50%) rotate(45deg) scale(.8);} }
+  #damage-vignette { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(255,0,0,.55); opacity: 0; transition: opacity .4s; }
+
+  #countdown { position: absolute; left: 50%; top: 38%; transform: translate(-50%,-50%); font-size: 110px; font-weight: 900; color: var(--accent2); text-shadow: 5px 5px 0 #000; }
+  #round-banner { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font-size: 40px; font-weight: 900; text-shadow: 3px 3px 0 #000; text-align: center; }
+  .bigscore { font-size: clamp(64px, 14vw, 120px); font-weight: 900; letter-spacing: 6px; text-shadow: 5px 5px 0 #000; }
+  .bigscore .me { color: var(--accent2); } .bigscore .foe { color: var(--accent); }
+
+  /* Mobile controls */
+  #mobile-ui { position: fixed; inset: 0; z-index: 15; pointer-events: none; display: none; }
+  body.is-touch #mobile-ui { display: block; }
+  #stick-zone { position: absolute; left: 0; top: 0; width: 45%; height: 100%; pointer-events: auto; }
+  #look-zone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; pointer-events: auto; }
+  #stick-base { position: absolute; width: 120px; height: 120px; border: 3px solid #fff5; border-radius: 50%; background: #0004; display: none; }
+  #stick-knob { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: #fff8; left: 33px; top: 33px; }
+  .mbtn { position: absolute; border-radius: 50%; background: #0006; border: 3px solid #fff6; color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center; pointer-events: auto; user-select: none; touch-action: none; }
+  .mbtn:active { background: var(--accent); }
+  #btn-fire { right: 24px; bottom: 90px; width: 96px; height: 96px; font-size: 15px; border-color: var(--accent); }
+  #btn-jump { right: 140px; bottom: 32px; width: 68px; height: 68px; font-size: 13px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/",
+    "lz-string": "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/+esm"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="damage-vignette"></div>
+  <div id="crosshair"></div>
+  <div id="hitmarker"></div>
+  <div id="hp-bar"><div id="hp-num">100</div><div class="frame"><div id="hp-fill" style="width:100%"></div></div></div>
+  <div id="weapon-label"></div>
+  <div id="score-mini">0 : 0</div>
+  <div id="countdown" class="hidden"></div>
+  <div id="round-banner" class="hidden"></div>
+</div>
+
+<!-- Mobile -->
+<div id="mobile-ui">
+  <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
+  <div id="look-zone"></div>
+  <div class="mbtn" id="btn-fire">FIRE</div>
+  <div class="mbtn" id="btn-jump">JMP</div>
+</div>
+
+<!-- Screens (filled by ui.js) -->
+<div id="screen-menu" class="screen"></div>
+<div id="screen-maps" class="screen hidden"></div>
+<div id="screen-ghosts" class="screen hidden"></div>
+<div id="screen-challenge" class="screen hidden"></div>
+<div id="screen-settings" class="screen hidden"></div>
+<div id="screen-pause" class="screen hidden"></div>
+<div id="screen-round" class="screen hidden"></div>
+<div id="screen-match" class="screen hidden"></div>
+
+<script type="module" src="js/game.js"></script>
+</body>
+</html>

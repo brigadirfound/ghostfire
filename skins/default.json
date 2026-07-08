@@ -1,0 +1,39 @@
+{
+  "id": "default",
+  "name": "Стандарт",
+  "body": {
+    "head": "#ffcc88",
+    "torso": "#2277dd",
+    "arms": "#ffcc88",
+    "legs": "#334455"
+  },
+  "ghostTint": "#88ddff",
+  "ghostOpacity": 0.85,
+  "weapons": {
+    "pistol": { "body": "#444c55", "grip": "#2a2f36", "accent": "#ffaa33" },
+    "shotgun": { "body": "#8a4b2d", "grip": "#3a2a1a", "accent": "#dd3322" },
+    "railgun": { "body": "#2a3a4a", "grip": "#1a2028", "accent": "#33ddff" }
+  },
+  "tracer": "#ffdd55",
+  "railTracer": "#33ddff",
+  "models": {
+    "pistol": [
+      { "size": [0.12, 0.14, 0.36], "pos": [0, 0.05, -0.1], "color": "body" },
+      { "size": [0.1, 0.2, 0.12], "pos": [0, -0.1, 0.06], "color": "grip" },
+      { "size": [0.04, 0.05, 0.06], "pos": [0, 0.15, -0.2], "color": "accent" }
+    ],
+    "shotgun": [
+      { "size": [0.14, 0.14, 0.8], "pos": [0, 0.06, -0.25], "color": "body" },
+      { "size": [0.1, 0.1, 0.5], "pos": [0, 0.17, -0.35], "color": "accent" },
+      { "size": [0.18, 0.12, 0.22], "pos": [0, -0.02, -0.35], "color": "grip" },
+      { "size": [0.12, 0.18, 0.3], "pos": [0, -0.06, 0.25], "color": "grip" }
+    ],
+    "railgun": [
+      { "size": [0.16, 0.2, 0.9], "pos": [0, 0.04, -0.2], "color": "body" },
+      { "size": [0.06, 0.06, 1.1], "pos": [-0.08, 0.14, -0.3], "color": "accent" },
+      { "size": [0.06, 0.06, 1.1], "pos": [0.08, 0.14, -0.3], "color": "accent" },
+      { "size": [0.26, 0.26, 0.14], "pos": [0, 0.08, -0.55], "color": "accent" },
+      { "size": [0.1, 0.2, 0.12], "pos": [0, -0.12, 0.1], "color": "grip" }
+    ]
+  }
+}
