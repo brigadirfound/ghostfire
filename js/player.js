@@ -140,9 +140,10 @@ export class Player {
     // --- движение: без инерции, полный контроль и в воздухе ---
     const len = Math.hypot(fx, fz);
     if (len > 1) { fx /= len; fz /= len; }
+    // поворот локального (fx, fz) вокруг Y: вперёд = -Z в локальных осях камеры
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
-    this.vel.x = (fx * cos - fz * sin) * MOVE.speed;
-    this.vel.z = (fz * cos + fx * sin) * MOVE.speed;
+    this.vel.x = (fx * cos + fz * sin) * MOVE.speed;
+    this.vel.z = (-fx * sin + fz * cos) * MOVE.speed;
     this.vel.y -= MOVE.gravity * dt;
 
     if (jump && this.onGround) {
