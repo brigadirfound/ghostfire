@@ -2,7 +2,10 @@
 // Пишет тот же формат, что skins/default.json. Задел под донат-магазин.
 import * as THREE from 'three';
 import { buildWeaponModel } from './weapons.js';
+import { boxMaterials, imageToArt, MASK_PRESETS } from './face.js';
 import { Platform } from './platform.js';
+
+const ART_SIZE = 16;
 
 const FIELDS = [
   { path: 'body.head', label: 'Голова', panel: 'skin-body' },
@@ -66,8 +69,15 @@ export function initSkinEditor(status) {
       return m;
     };
     const b = skin.body;
-    part(0.55, 0.55, 0.55, b.head, 0, 1.43, 0);
-    part(0.6, 0.55, 0.32, b.torso, 0, 0.88, 0);
+    // голова и торс — с пиксель-артом на передней грани
+    const artPart = (w, h, d, color, art, x, y, z) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+        boxMaterials(hex => new THREE.MeshLambertMaterial({ color: hex }), color, art));
+      m.position.set(x, y, z);
+      preview.add(m);
+    };
+    artPart(0.55, 0.55, 0.55, b.head, skin.art?.face, 0, 1.43, 0);
+    artPart(0.6, 0.55, 0.32, b.torso, skin.art?.torso, 0, 0.88, 0);
     part(0.16, 0.5, 0.16, b.arms, -0.38, 1.05, 0);
     part(0.16, 0.5, 0.16, b.arms, 0.38, 1.05, 0);
     part(0.22, 0.6, 0.22, b.legs, -0.16, 0.3, 0);
@@ -107,6 +117,97 @@ export function initSkinEditor(status) {
     }
   }
 
+  // ---------- пиксель-арт: маска на лицо / одежда на торс ----------
+  const pixCanvas = document.getElementById('pix-canvas');
+  const pixCtx = pixCanvas.getContext('2d');
+  const CELL = pixCanvas.width / ART_SIZE;
+  let eraser = false;
+
+  const target = () => document.getElementById('pix-target').value; // 'face' | 'torso'
+  const getArt = () => {
+    skin.art ??= {};
+    skin.art[target()] ??= { size: ART_SIZE, pixels: new Array(ART_SIZE * ART_SIZE).fill(null) };
+    return skin.art[target()];
+  };
+
+  function drawPix() {
+    const art = getArt();
+    for (let i = 0; i < ART_SIZE * ART_SIZE; i++) {
+      const x = (i % ART_SIZE) * CELL, y = Math.floor(i / ART_SIZE) * CELL;
+      // шахматка под прозрачностью
+      pixCtx.fillStyle = ((i % ART_SIZE) + Math.floor(i / ART_SIZE)) % 2 ? '#252b33' : '#2c333d';
+      pixCtx.fillRect(x, y, CELL, CELL);
+      if (art.pixels[i]) { pixCtx.fillStyle = art.pixels[i]; pixCtx.fillRect(x, y, CELL, CELL); }
+    }
+  }
+
+  let painting = false;
+  const paintAt = (e) => {
+    const r = pixCanvas.getBoundingClientRect();
+    const cx = Math.floor((e.clientX - r.left) / r.width * ART_SIZE);
+    const cy = Math.floor((e.clientY - r.top) / r.height * ART_SIZE);
+    if (cx < 0 || cy < 0 || cx >= ART_SIZE || cy >= ART_SIZE) return;
+    const art = getArt();
+    const color = eraser ? null : document.getElementById('pix-color').value;
+    if (art.pixels[cy * ART_SIZE + cx] === color) return;
+    art.pixels[cy * ART_SIZE + cx] = color;
+    drawPix();
+    rebuild();
+  };
+  pixCanvas.addEventListener('pointerdown', (e) => {
+    painting = true;
+    pixCanvas.setPointerCapture(e.pointerId);
+    paintAt(e);
+  });
+  pixCanvas.addEventListener('pointermove', (e) => { if (painting) paintAt(e); });
+  pixCanvas.addEventListener('pointerup', () => { painting = false; });
+
+  document.getElementById('pix-target').onchange = drawPix;
+  document.getElementById('pix-eraser').onclick = (e) => {
+    eraser = !eraser;
+    e.target.textContent = eraser ? 'Ластик: ВКЛ' : 'Ластик: выкл';
+    e.target.classList.toggle('active', eraser);
+  };
+  document.getElementById('pix-clear').onclick = () => {
+    getArt().pixels.fill(null);
+    drawPix();
+    rebuild();
+  };
+
+  // готовые маски
+  const presetsBox = document.getElementById('pix-presets');
+  for (const [name, art] of Object.entries(MASK_PRESETS)) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.style.flex = '1 1 45%';
+    b.textContent = name;
+    b.onclick = () => {
+      document.getElementById('pix-target').value = 'face';
+      skin.art ??= {};
+      skin.art.face = { size: art.size, pixels: [...art.pixels] };
+      drawPix();
+      rebuild();
+    };
+    presetsBox.append(b);
+  }
+
+  // загрузка своей картинки → пиксель-арт 16×16
+  document.getElementById('pix-upload').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      skin.art ??= {};
+      skin.art[target()] = imageToArt(img, ART_SIZE);
+      URL.revokeObjectURL(img.src);
+      drawPix();
+      rebuild();
+      status('Картинка встала на ' + (target() === 'face' ? 'лицо' : 'торс'));
+    };
+    img.src = URL.createObjectURL(file);
+    e.target.value = '';
+  };
+
   document.getElementById('btn-skin-save').onclick = async () => {
     await Platform.saveSkin(skin);
     status('Скин применён — увидишь в игре');
@@ -116,6 +217,7 @@ export function initSkinEditor(status) {
     await Platform.saveSkin(skin);
     buildForm();
     rebuild();
+    drawPix();
     status('Сброшено к стандарту');
   };
 
@@ -135,6 +237,7 @@ export function initSkinEditor(status) {
     skin = (await Platform.loadSkin()) ?? JSON.parse(JSON.stringify(defaultSkin));
     buildForm();
     rebuild();
+    drawPix();
     resize();
     (function loop() {
       requestAnimationFrame(loop);

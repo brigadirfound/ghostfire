@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { raycastVoxels } from './map.js';
 import { WEAPONS, RAILGUN, buildWeaponModel } from './weapons.js';
+import { boxMaterials } from './face.js';
 import { Sound } from './audio.js';
 
 const HEAD = 0.55; // большая кубическая голова — фишка headshot ×2
@@ -53,14 +54,18 @@ export class Ghost {
         emissive: tint.clone().multiplyScalar(0.15),
       });
     };
-    const part = (w, h, d, hex) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(hex));
+    const part = (w, h, d, hex, art = null) => {
+      // art — пиксель-арт на передней грани (маска на голове, одежда на торсе)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+        art ? boxMaterials(mat, hex, art) : mat(hex));
       m.castShadow = true;
       return m;
     };
     this.group = new THREE.Group();
-    this.head = part(HEAD, HEAD, HEAD, b.head); this.head.position.y = 0.6 + 0.55 + HEAD / 2;
-    this.torso = part(0.6, 0.55, 0.32, b.torso); this.torso.position.y = 0.6 + 0.55 / 2;
+    this.head = part(HEAD, HEAD, HEAD, b.head, this.skin.art?.face);
+    this.head.position.y = 0.6 + 0.55 + HEAD / 2;
+    this.torso = part(0.6, 0.55, 0.32, b.torso, this.skin.art?.torso);
+    this.torso.position.y = 0.6 + 0.55 / 2;
     this.armL = part(0.16, 0.5, 0.16, b.arms); this.armL.position.set(-0.38, 1.05, 0);
     this.armR = part(0.16, 0.5, 0.16, b.arms); this.armR.position.set(0.38, 1.05, 0);
     this.legL = part(0.22, 0.6, 0.22, b.legs); this.legL.position.set(-0.16, 0.3, 0);

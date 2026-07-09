@@ -80,6 +80,25 @@
 
 <div id="panel-skin" class="panel hidden">
   <div class="tools" id="skin-tools">
+    <h3>Маска и одежда</h3>
+    <div class="crow">
+      <select id="pix-target" class="btn" style="padding:5px">
+        <option value="face">Лицо / маска</option>
+        <option value="torso">Одежда (торс)</option>
+      </select>
+      <input type="color" id="pix-color" value="#ff3333">
+    </div>
+    <canvas id="pix-canvas" width="208" height="208" style="width:208px;height:208px;image-rendering:pixelated;border:2px solid #3a4450;border-radius:6px;cursor:crosshair;touch-action:none"></canvas>
+    <div class="crow" style="gap:6px">
+      <button class="btn" id="pix-eraser" style="flex:1">Ластик: выкл</button>
+      <button class="btn" id="pix-clear" style="flex:1">Очистить</button>
+    </div>
+    <div id="pix-presets" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+    <label class="btn" style="text-align:center">
+      📷 Загрузить картинку
+      <input type="file" id="pix-upload" accept="image/*" style="display:none">
+    </label>
+    <div class="hint">Рисуй мышью по сетке. Картинка сожмётся в пиксель-арт 16×16 и встанет на лицо или торс.</div>
     <h3>Персонаж</h3>
     <div id="skin-body"></div>
     <h3>Пистолет</h3><div id="skin-pistol"></div>
