@@ -118,11 +118,13 @@ const G = {
 
 const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true };
 
+let customMap = null;
 const ui = new UI({
   settings,
   startMatch,
   saveSettings: persist,
   getPlayerGhost: () => G.playerGhost,
+  getCustomMap: () => customMap,
   rematchRewarded,
   resumeMatch: () => resumeMatch(),
   exitMatch: () => endMatchToMenu(),
@@ -205,7 +207,16 @@ async function startMatch(mapId, ghostEntry, keepScore = false) {
   if (G.player) G.player.dispose();
   for (const p of G.pickups) scene.remove(p.mesh);
 
-  G.map = await GameMap.load(G.mapId);
+  if (ghostEntry?.mapData) {
+    // призрак пришёл с собственной картой (шеринг с пользовательской карты)
+    G.map = new GameMap(ghostEntry.mapData);
+  } else if (G.mapId === '__custom') {
+    const data = await Platform.loadCustomMap();
+    if (!data) { ui.buildMenu(); return; }
+    G.map = new GameMap(data);
+  } else {
+    G.map = await GameMap.load(G.mapId);
+  }
   G.mapGroup = G.map.mesh;
   scene.add(G.mapGroup);
 
@@ -362,6 +373,8 @@ async function endMatch() {
       score: `${G.score.me}:${G.score.foe}`,
       data: G.bestRound.data,
     };
+    // с пользовательской карты призрак уезжает вместе с самой картой
+    if (G.mapId === '__custom' && customMap) G.playerGhost.mapData = customMap;
     persist();
   }
   Platform.submitScore('wins', G.score.me);
@@ -398,7 +411,9 @@ async function boot() {
   Sound.setEnabled(settings.sound);
   mobile.applyFireMode();
 
-  G.skin = await (await fetch('skins/default.json')).json();
+  // пользовательский скин из редактора имеет приоритет над стандартным
+  G.skin = (await Platform.loadSkin()) ?? await (await fetch('skins/default.json')).json();
+  customMap = await Platform.loadCustomMap();
   await ui.loadBuiltinGhosts();
 
   // принятие вызова из URL: ?ghost=код

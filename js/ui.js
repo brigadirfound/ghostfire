@@ -2,6 +2,7 @@
 // HUD, шеринг призрака через LZ-string.
 import LZString from 'lz-string';
 import { t, setLang, getLang } from './i18n.js';
+import { synthBotForMap, botNames } from './botgen.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => {
@@ -54,6 +55,7 @@ export class UI {
     s.append(
       this._btn(t('play'), 'primary', () => this.buildMaps()),
       this._btn(t('challenges'), '', () => this.buildChallenge()),
+      this._btn(t('editor'), '', () => { location.href = 'editor.html'; }),
       this._btn(t('settings'), '', () => this.buildSettings()),
     );
     this.show('menu');
@@ -64,10 +66,12 @@ export class UI {
     s.innerHTML = '';
     s.append(el('h2', '', t('chooseMap')));
     const row = el('div', 'row');
-    for (const id of ['arena01', 'arena02']) {
+    const ids = ['arena01', 'arena02'];
+    if (this.a.getCustomMap()) ids.push('custom');
+    for (const id of ids) {
       const card = el('div', 'map-card' + (id === this.selectedMap ? ' selected' : ''));
       card.append(el('div', 'map-name', t(`map_${id}`)), el('div', 'map-desc', t(`map_${id}_desc`)));
-      card.onclick = () => { this.selectedMap = id; this.buildGhosts(); };
+      card.onclick = () => { this.selectedMap = id === 'custom' ? '__custom' : id; this.buildGhosts(); };
       row.append(card);
     }
     s.append(row, this._btn(t('back'), 'small', () => this.show('menu')));
@@ -78,6 +82,34 @@ export class UI {
     const s = $('screen-ghosts');
     s.innerHTML = '';
     s.append(el('h2', '', t('chooseGhost')));
+    if (this.selectedMap === '__custom') {
+      // пользовательская карта: боты синтезируются под неё на месте
+      botNames().forEach((name, i) => {
+        const card = el('div', 'ghost-card');
+        card.append(
+          el('div', '', `<div class="gname">${t('botOnMap')} · ${name}</div>`),
+          el('div', 'gdiff', '★'.repeat(i + 1)),
+        );
+        card.onclick = () => {
+          const entry = synthBotForMap(this.a.getCustomMap(), i);
+          this.a.startMatch('__custom', entry);
+        };
+        s.append(card);
+      });
+      const mine = this.a.getPlayerGhost();
+      if (mine && mine.map === '__custom') {
+        const card = el('div', 'ghost-card');
+        card.append(
+          el('div', '', `<div class="gname">${t('yourGhost')}</div><div class="gdesc">${t('yourGhostDesc')}</div>`),
+          el('div', 'gdiff', '👻'),
+        );
+        card.onclick = () => this.a.startMatch('__custom', mine);
+        s.append(card);
+      }
+      s.append(this._btn(t('back'), 'small', () => this.buildMaps()));
+      this.show('ghosts');
+      return;
+    }
     this.builtinGhosts.forEach((g, i) => {
       const card = el('div', 'ghost-card');
       card.append(

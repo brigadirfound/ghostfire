@@ -54,4 +54,31 @@ export const Platform = {
     console.log(`[platform] submitScore("${board}", ${score}) (stub)`);
     return true;
   },
+
+  // --- UGC: пользовательский скин и карта из редактора ---
+  // (в Яндекс-версии скин станет предметом каталога покупок, карта — облачным сейвом)
+
+  async saveSkin(skin) {
+    try { localStorage.setItem(LS_PREFIX + 'skin', JSON.stringify(skin)); return true; }
+    catch { return false; }
+  },
+
+  async loadSkin() {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + 'skin');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  },
+
+  async saveCustomMap(mapData) {
+    try { localStorage.setItem(LS_PREFIX + 'custommap', JSON.stringify(mapData)); return true; }
+    catch { return false; }
+  },
+
+  async loadCustomMap() {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + 'custommap');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  },
 };

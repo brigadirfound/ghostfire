@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GHOSTFIRE — Редактор</title>
+<style>
+  :root { --accent: #ff5533; --accent2: #33ddff; --bg: #101418; --panel: #1a2028; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
+  .hidden { display: none !important; }
+
+  #topbar { position: fixed; top: 0; left: 0; right: 0; height: 52px; background: var(--panel); display: flex; align-items: center; gap: 10px; padding: 0 14px; z-index: 10; border-bottom: 2px solid #2a3038; }
+  .btn { padding: 8px 16px; font-size: 14px; font-weight: 700; color: #fff; background: #232a33; border: 2px solid #3a4450; border-radius: 6px; cursor: pointer; text-decoration: none; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.active { border-color: var(--accent2); background: #2a3644; }
+  .btn.primary { background: var(--accent); border-color: #ff7755; }
+  #status { margin-left: auto; font-size: 13px; color: #8f9; }
+
+  .panel { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; }
+  .tools { width: 240px; background: var(--panel); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; border-right: 2px solid #2a3038; }
+  .tools h3 { font-size: 13px; text-transform: uppercase; opacity: .6; margin-top: 8px; }
+  .tools .btn { text-align: left; font-size: 13px; padding: 7px 10px; }
+  canvas.view { flex: 1; display: block; }
+
+  #palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .pal { height: 34px; border-radius: 5px; border: 3px solid transparent; cursor: pointer; }
+  .pal.active { border-color: #fff; }
+
+  .crow { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .crow input[type=color] { width: 44px; height: 26px; border: none; background: none; cursor: pointer; }
+  .hint { font-size: 11.5px; opacity: .55; line-height: 1.5; }
+  textarea#code-io { width: 100%; height: 60px; background: #12161c; color: #9fd; border: 1px solid #3a4450; border-radius: 5px; font-family: monospace; font-size: 11px; padding: 6px; resize: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/",
+    "lz-string": "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/+esm"
+  }
+}
+</script>
+</head>
+<body>
+<div id="topbar">
+  <a href="index.html" class="btn">← Игра</a>
+  <button id="tab-map" class="btn active">Редактор карт</button>
+  <button id="tab-skin" class="btn">Редактор скинов</button>
+  <span id="status"></span>
+</div>
+
+<div id="panel-map" class="panel">
+  <div class="tools" id="map-tools">
+    <h3>Инструменты</h3>
+    <button class="btn tool active" data-tool="place">🧱 Блок (ЛКМ — ставить)</button>
+    <button class="btn tool" data-tool="erase">❌ Стереть</button>
+    <button class="btn tool" data-tool="spawn0">🔵 Спавн игрока</button>
+    <button class="btn tool" data-tool="spawn1">🔴 Спавн призрака</button>
+    <button class="btn tool" data-tool="weapon1">🔫 Дробовик</button>
+    <button class="btn tool" data-tool="weapon2">⚡ Рейлган</button>
+    <h3>Цвет блока</h3>
+    <div id="palette"></div>
+    <h3>Карта</h3>
+    <button class="btn" id="btn-new">Новая 24×24</button>
+    <button class="btn" id="btn-load1">Открыть «Тесная арена»</button>
+    <button class="btn" id="btn-load2">Открыть «Два уровня»</button>
+    <h3>Обмен</h3>
+    <textarea id="code-io" placeholder="Код карты для импорта/экспорта"></textarea>
+    <button class="btn" id="btn-import">Импорт из кода</button>
+    <button class="btn" id="btn-export">Экспорт в код</button>
+    <button class="btn" id="btn-download">Скачать JSON</button>
+    <button class="btn primary" id="btn-save">💾 Сохранить в игру</button>
+    <div class="hint">Вращение — ПКМ-драг, зум — колесо, панорама — СКМ.
+    Блоки ставятся кликом по грани. Для игры нужны оба спавна.
+    Сохранённая карта появится в игре как «Своя карта».</div>
+  </div>
+  <canvas class="view" id="map-canvas"></canvas>
+</div>
+
+<div id="panel-skin" class="panel hidden">
+  <div class="tools" id="skin-tools">
+    <h3>Персонаж</h3>
+    <div id="skin-body"></div>
+    <h3>Пистолет</h3><div id="skin-pistol"></div>
+    <h3>Дробовик</h3><div id="skin-shotgun"></div>
+    <h3>Рейлган</h3><div id="skin-railgun"></div>
+    <h3>Эффекты</h3><div id="skin-fx"></div>
+    <button class="btn primary" id="btn-skin-save">💾 Применить скин</button>
+    <button class="btn" id="btn-skin-reset">Сбросить к стандарту</button>
+    <div class="hint">Скин применяется к твоему персонажу, призракам и пушкам.
+    Хранится локально — задел под донат-магазин.</div>
+  </div>
+  <canvas class="view" id="skin-canvas"></canvas>
+</div>
+
+<script type="module" src="js/editor.js"></script>
+</body>
+</html>

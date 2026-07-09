@@ -46,6 +46,10 @@ export const STRINGS = {
     pause: 'Пауза',
     resume: 'Продолжить',
     exitMatch: 'Выйти в меню',
+    editor: 'Редактор',
+    map_custom: 'Своя карта',
+    map_custom_desc: 'Создана в редакторе',
+    botOnMap: 'Бот на этой карте',
   },
   en: {
     play: 'Play',
@@ -93,6 +97,10 @@ export const STRINGS = {
     pause: 'Paused',
     resume: 'Resume',
     exitMatch: 'Exit to menu',
+    editor: 'Editor',
+    map_custom: 'Custom map',
+    map_custom_desc: 'Made in the editor',
+    botOnMap: 'Bot on this map',
   },
 };
 
