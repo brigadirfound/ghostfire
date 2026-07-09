@@ -1,97 +1,172 @@
 // Обёртка платформы. Все обращения игры к SDK/рекламе/сохранениям — ТОЛЬКО отсюда.
-// Сейчас — localStorage-заглушки; при интеграции (Yandex Games, Poki, CrazyGames...)
-// меняется только этот файл.
+// Автоопределение окружения: на Яндекс Играх подключается настоящий SDK,
+// на localhost/GitHub Pages — localStorage-заглушки. Игра этого не замечает.
 
 const LS_PREFIX = 'ghostfire.';
 
+let ysdk = null;       // экземпляр Яндекс SDK (null = режим заглушек)
+let yaPlayer = null;   // игрок Яндекса (облачные сейвы)
+let payments = null;   // покупки (Яны)
+let cloud = null;      // кеш облачных данных player.getData()
+
+/** Пробуем подключить /sdk.js — он существует только на CDN Яндекс Игр. */
+function tryLoadYandexScript() {
+  if (window.YaGames) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = '/sdk.js';
+    const done = (ok) => { resolve(ok); };
+    s.onload = () => done(true);
+    s.onerror = () => done(false);
+    setTimeout(() => done(false), 7000);
+    document.head.appendChild(s);
+  });
+}
+
+/** Локальное чтение/запись — работает всегда, облако поверх (если есть). */
+function lsRead(key) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function lsWrite(key, value) {
+  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(value)); return true; }
+  catch { return false; }
+}
+
+/** Универсальное хранилище: localStorage всегда + облако Яндекса при наличии. */
+async function store(key, value) {
+  lsWrite(key, value);
+  if (yaPlayer) {
+    cloud = { ...(cloud ?? {}), [key]: value };
+    try { await yaPlayer.setData(cloud); } catch (e) { console.warn('[platform] cloud save failed', e); }
+  }
+  return true;
+}
+function read(key) {
+  if (cloud && cloud[key] !== undefined && cloud[key] !== null) return cloud[key];
+  return lsRead(key);
+}
+
 export const Platform = {
   ready: false,
+  isYandex: false,
 
   async initSDK() {
-    // Заглушка: реальный SDK инициализируется здесь.
+    try {
+      if (await tryLoadYandexScript()) {
+        ysdk = await window.YaGames.init();
+        this.isYandex = true;
+        try {
+          yaPlayer = await ysdk.getPlayer();
+          cloud = await yaPlayer.getData();
+        } catch (e) {
+          console.warn('[platform] player unavailable', e);
+          yaPlayer = null;
+        }
+        console.log('[platform] Yandex Games SDK готов');
+        this.ready = true;
+        return true;
+      }
+    } catch (e) {
+      console.warn('[platform] Yandex init failed → заглушки', e);
+      ysdk = null;
+    }
     console.log('[platform] initSDK (stub)');
     this.ready = true;
     return true;
   },
 
+  /** Сигнал "игра загружена и играбельна" — обязательное требование Яндекса.
+   *  Вызывается в конце boot(), когда меню уже показано. */
+  gameReady() {
+    try { ysdk?.features?.LoadingAPI?.ready?.(); } catch { /* старые версии SDK */ }
+  },
+
   /**
-   * Rewarded-реклама. resolve(true) — награда выдана, resolve(false) — отказ/ошибка.
+   * Rewarded-реклама. resolve(true) — награда выдана.
    * Хук уже используется: "реванш с того же счёта" на экране поражения.
    */
   async showRewardedAd(placement) {
+    if (ysdk) {
+      return new Promise((resolve) => {
+        let rewarded = false;
+        ysdk.adv.showRewardedVideo({
+          callbacks: {
+            onRewarded: () => { rewarded = true; },
+            onClose: () => resolve(rewarded),
+            onError: (e) => { console.warn('[platform] rewarded error', e); resolve(false); },
+          },
+        });
+      });
+    }
     console.log(`[platform] showRewardedAd("${placement}") (stub) → granted`);
     return true;
   },
 
   async showInterstitialAd(placement) {
+    if (ysdk) {
+      return new Promise((resolve) => {
+        ysdk.adv.showFullscreenAdv({
+          callbacks: {
+            onClose: () => resolve(true),
+            onError: (e) => { console.warn('[platform] interstitial error', e); resolve(false); },
+          },
+        });
+      });
+    }
     console.log(`[platform] showInterstitialAd("${placement}") (stub)`);
     return true;
   },
 
-  /** Сохранение профиля игрока (прогресс, призрак, настройки). */
-  async savePlayer(data) {
-    try {
-      localStorage.setItem(LS_PREFIX + 'player', JSON.stringify(data));
-      return true;
-    } catch (e) {
-      console.warn('[platform] savePlayer failed', e);
-      return false;
-    }
-  },
+  /** Профиль игрока (настройки, призрак). Облако + localStorage. */
+  async savePlayer(data) { return store('player', data); },
+  async loadPlayer() { return read('player'); },
 
-  async loadPlayer() {
-    try {
-      const raw = localStorage.getItem(LS_PREFIX + 'player');
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      console.warn('[platform] loadPlayer failed', e);
-      return null;
-    }
-  },
-
-  /** Таблица лидеров — заглушка. */
+  /** Таблица лидеров. */
   async submitScore(board, score) {
+    if (ysdk) {
+      try {
+        const lb = await ysdk.getLeaderboards();
+        await lb.setLeaderboardScore(board, score);
+        return true;
+      } catch (e) { console.warn('[platform] leaderboard failed', e); return false; }
+    }
     console.log(`[platform] submitScore("${board}", ${score}) (stub)`);
     return true;
   },
 
-  // --- UGC: пользовательский скин и карта из редактора ---
-  // (в Яндекс-версии скин станет предметом каталога покупок, карта — облачным сейвом)
-
-  async saveSkin(skin) {
-    try { localStorage.setItem(LS_PREFIX + 'skin', JSON.stringify(skin)); return true; }
-    catch { return false; }
-  },
-
-  async loadSkin() {
-    try {
-      const raw = localStorage.getItem(LS_PREFIX + 'skin');
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  },
-
   // --- Экономика: госткоины ---
-  // Внутренняя валюта. Яны (Яндекс Payments) конвертируются в госткоины
-  // ТОЛЬКО в одну сторону через buyCoinsPack — вся UGC-экономика (скины,
-  // проценты авторам) живёт в коинах, в каталоге Яндекса только паки.
+  // Яны (Яндекс Payments) конвертируются в госткоины ТОЛЬКО в одну сторону
+  // через buyCoinsPack — вся UGC-экономика живёт в коинах, в каталоге
+  // покупок Яндекса только паки (id: pack_s / pack_m / pack_l).
 
   async loadWallet() {
-    try {
-      const raw = localStorage.getItem(LS_PREFIX + 'wallet');
-      return raw ? JSON.parse(raw) : { coins: 100, owned: ['default'] }; // стартовый бонус
-    } catch { return { coins: 100, owned: ['default'] }; }
+    return read('wallet') ?? { coins: 100, owned: ['default'], equipped: 'default' };
   },
 
-  async saveWallet(wallet) {
-    try { localStorage.setItem(LS_PREFIX + 'wallet', JSON.stringify(wallet)); return true; }
-    catch { return false; }
-  },
+  async saveWallet(wallet) { return store('wallet', wallet); },
 
   /**
-   * Покупка пака госткоинов за Яны. Заглушка сразу выдаёт коины;
-   * в Яндекс-версии здесь ysdk.getPayments().purchase({id: packId}).
+   * Покупка пака госткоинов. На Яндексе — настоящая покупка за Яны
+   * с consume после зачисления; в заглушке коины выдаются сразу.
    */
   async buyCoinsPack(packId, coins) {
+    if (ysdk) {
+      try {
+        payments ??= await ysdk.getPayments({ signed: true });
+        const purchase = await payments.purchase({ id: packId });
+        const w = await this.loadWallet();
+        w.coins += coins;
+        await this.saveWallet(w);
+        await payments.consumePurchase(purchase.purchaseToken);
+        return w;
+      } catch (e) {
+        console.warn('[platform] purchase failed/cancelled', e);
+        return await this.loadWallet(); // отмена покупки — баланс не меняется
+      }
+    }
     console.log(`[platform] buyCoinsPack("${packId}") (stub) → +${coins} coins`);
     const w = await this.loadWallet();
     w.coins += coins;
@@ -99,15 +174,10 @@ export const Platform = {
     return w;
   },
 
-  async saveCustomMap(mapData) {
-    try { localStorage.setItem(LS_PREFIX + 'custommap', JSON.stringify(mapData)); return true; }
-    catch { return false; }
-  },
+  // --- UGC: пользовательский скин и карта из редактора ---
 
-  async loadCustomMap() {
-    try {
-      const raw = localStorage.getItem(LS_PREFIX + 'custommap');
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  },
+  async saveSkin(skin) { return store('skin', skin); },
+  async loadSkin() { return read('skin'); },
+  async saveCustomMap(mapData) { return store('custommap', mapData); },
+  async loadCustomMap() { return read('custommap'); },
 };

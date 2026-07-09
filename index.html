@@ -12,8 +12,10 @@
     --panel: rgba(16, 20, 24, 0.92);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
-  #game-canvas { position: fixed; inset: 0; display: block; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
+    touch-action: none; overscroll-behavior: none; }
+  #game-canvas { position: fixed; inset: 0; display: block; touch-action: none; }
+  #mobile-ui, #stick-zone, #look-zone, #hud { touch-action: none; }
 
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: var(--panel); z-index: 20; }
   .hidden { display: none !important; }

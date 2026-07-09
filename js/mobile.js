@@ -15,9 +15,26 @@ export class MobileControls {
     this._look = { x: 0, y: 0 };
     this._firePressed = false;
     this._jumpPressed = false;
-    if (IS_TOUCH) document.body.classList.add('is-touch');
+    if (IS_TOUCH) {
+      document.body.classList.add('is-touch');
+      this._blockBrowserGestures();
+    }
     this._bind();
     this.applyFireMode();
+  }
+
+  /** Пинч-зум и двойной тап ломают управление двумя пальцами — глушим. */
+  _blockBrowserGestures() {
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1) e.preventDefault(); // пинч-зум
+    }, { passive: false });
+    document.addEventListener('gesturestart', (e) => e.preventDefault()); // iOS Safari
+    let lastTap = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTap < 300) e.preventDefault(); // зум двойным тапом
+      lastTap = now;
+    }, { passive: false });
   }
 
   applyFireMode() {

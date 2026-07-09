@@ -147,16 +147,23 @@ pixelRatio cap 2, BasicShadowMap (жёсткие тени), туман скры�
   в коинах (Яндекс не выплачивает деньги игрокам, поэтому вся экономика
   создателей обязана жить во внутренней валюте). Нужен бэкенд-каталог.
 
-### Яндекс Игры (проверено по SDK)
-- Вся интеграция — только в js/platform.js: `YaGames.init()` → initSDK,
-  `ysdk.adv.showRewardedVideo/showFullscreenAdv` → наши хуки,
-  `player.setData/getData` → savePlayer/loadPlayer (облако), лидерборды → submitScore.
-- **Встроенная валюта (Яны)**: Payments API (`ysdk.getPayments()`), каталог
-  покупок в консоли разработчика — туда идут скины/слоты призраков.
+### Яндекс Игры — SDK ИНТЕГРИРОВАН (js/platform.js)
+- Автоопределение окружения: platform.js пробует загрузить `/sdk.js`
+  (существует только на CDN Яндекса) → настоящий SDK; иначе localStorage-заглушки.
+  Локальная разработка и GitHub Pages работают без изменений.
+- Реализовано: `YaGames.init`, rewarded/interstitial реклама, облачные сейвы
+  (`player.setData/getData` + localStorage-фолбэк), лидерборды,
+  покупки Payments с consume (паки коинов: pack_s / pack_m / pack_l),
+  `LoadingAPI.ready()` в конце boot.
+- **В консоли разработчика надо завести**: 3 товара с id `pack_s`, `pack_m`,
+  `pack_l` (цены в Янах — см. skins/shop.json), лидерборд `wins`.
+- Сборка билда: `powershell -File tools/pack_yandex.ps1` → ghostfire_yandex.zip.
 - Нюанс: Яндекс не выплачивает деньги игрокам-авторам UGC → доля автору
   реализуется внутренней мягкой валютой, реальные деньги — разработчику.
-- Требования: работа в iframe (фолбэк без pointer lock уже есть), билд zip-ом,
-  модерация, обязательный вызов LoadingAPI.ready().
+
+### Деплой
+GitHub Pages через Actions (.github/workflows/pages.yml) — деплой на каждый
+push в main. В Settings → Pages должен быть Source: GitHub Actions.
 - **Рынок призраков**: платные "тренеры" — призраки топ-игроков; сезонные
   башни призраков (ladder) с наградами-косметикой.
 - **Rewarded-хуки** (заглушки уже стоят): реванш с того же счёта, второй слот

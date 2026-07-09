@@ -453,6 +453,7 @@ async function boot() {
   if (urlEntry) ui.buildChallenge(urlCode);
   else ui.buildMenu();
 
+  Platform.gameReady(); // сигнал Яндексу: игра играбельна
   requestAnimationFrame(loop);
 }
 
