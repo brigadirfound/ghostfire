@@ -54,7 +54,7 @@ export class UI {
     );
     s.append(
       this._btn(t('play'), 'primary', () => this.buildMaps()),
-      this._btn(t('challenges'), '', () => this.buildChallenge()),
+      this._btn(t('haveCode'), '', () => this.buildChallenge()),
       this._btn(t('shop') + ' 👻', '', () => this.buildShop()),
       this._btn(t('editor'), '', () => { location.href = 'editor.html'; }),
       this._btn(t('settings'), '', () => this.buildSettings()),
@@ -139,7 +139,7 @@ export class UI {
   buildChallenge(prefill = '') {
     const s = $('screen-challenge');
     s.innerHTML = '';
-    s.append(el('h2', '', t('challenges')));
+    s.append(el('h2', '', t('acceptChallenge')));
     const ta = el('textarea');
     ta.id = 'challenge-input';
     ta.placeholder = t('pasteCode');
@@ -150,13 +150,18 @@ export class UI {
       if (!entry) { status.textContent = t('badCode'); return; }
       this.a.startMatch(entry.map ?? 'arena01', entry);
     });
-    s.append(ta, fightBtn, status);
+    // вставка из буфера с graceful-фолбэком на ручную вставку в textarea
+    const pasteBtn = this._btn(t('pasteClipboard'), 'small', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) ta.value = text.trim();
+        else ta.focus();
+      } catch { ta.focus(); }
+    });
+    s.append(ta, el('div', 'row'), pasteBtn, fightBtn, status);
     const mine = this.a.getPlayerGhost();
     if (mine) {
-      s.append(this._btn(t('inviteFriend'), '', async () => {
-        await this.shareGhost(mine, mine.score ?? '5:0');
-        status.textContent = t('copied');
-      }));
+      s.append(this._btn(t('sendChallenge'), '', () => this.shareChallenge(mine)));
     }
     s.append(this._btn(t('back'), 'small', () => this.show('menu')));
     this.show('challenge');
@@ -278,31 +283,55 @@ export class UI {
       el('div', 'bigscore', `<span class="me">${playerScore}</span> : <span class="foe">${ghostScore}</span>`),
       el('div', '', `${t('accuracy')}: ${Math.round(accuracy * 100)}%`),
     );
-    const status = el('div', 'gdesc', '');
     const row = el('div', 'row');
-    row.append(this._btn(t('playAgain'), 'primary', () => this.a.startMatch(this.selectedMap, ghostEntry)));
     const mine = this.a.getPlayerGhost();
     if (won && mine) {
-      row.append(this._btn(t('inviteFriend'), '', async () => {
-        await this.shareGhost(mine, `${playerScore}:${ghostScore}`);
-        status.textContent = t('copied');
-      }));
+      // главная кнопка виральной петли — вызов другу в один тап
+      row.append(this._btn(t('sendChallenge') + ' 👻', 'primary', () => this.shareChallenge(mine)));
+      row.append(this._btn(t('playAgain'), '', () => this.a.startMatch(this.selectedMap, ghostEntry)));
+      row.append(this._btn(t('ghostCodeBtn'), 'small', () => this.shareCodeOnly(mine)));
+    } else {
+      row.append(this._btn(t('playAgain'), 'primary', () => this.a.startMatch(this.selectedMap, ghostEntry)));
     }
     if (!won) {
       // rewarded-хук: реванш с того же счёта
       row.append(this._btn(t('rematchAd') + ' 📺', '', () => this.a.rematchRewarded()));
     }
     row.append(this._btn(t('back'), '', () => this.show('menu')));
-    s.append(row, status);
+    s.append(row);
     this.show('match');
   }
 
-  async shareGhost(entry, score) {
+  /** Вызов другу: готовый текст со ссылкой по окружению; без ссылки — код. */
+  async shareChallenge(entry) {
     const code = encodeShareCode(entry);
-    const url = `${location.origin}${location.pathname}?ghost=${code}`;
-    const text = t('shareText', score, url);
-    try { await navigator.clipboard.writeText(text); }
-    catch { window.prompt('Copy:', text); }
+    const url = this.a.getShareUrl(code);
+    if (url) {
+      await copyText(t('challengeText', url));
+      this.toast(t('copiedToast'));
+    } else {
+      await copyText(code);
+      this.toast(t('codeCopiedToast'));
+    }
+  }
+
+  /** Только код призрака — для комментариев и площадок без ссылок. */
+  async shareCodeOnly(entry) {
+    await copyText(encodeShareCode(entry));
+    this.toast(t('codeCopiedToast'));
+  }
+
+  toast(msg) {
+    let tdiv = $('toast');
+    if (!tdiv) {
+      tdiv = el('div');
+      tdiv.id = 'toast';
+      document.body.append(tdiv);
+    }
+    tdiv.textContent = msg;
+    tdiv.classList.add('show');
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => tdiv.classList.remove('show'), 2200);
   }
 
   // ---------- HUD ----------
@@ -352,6 +381,23 @@ export class UI {
 }
 
 // ---------- шеринг: обёртка призрака → LZ-string код ----------
+
+/** Копирование с фолбэком для окружений без clipboard API (iframe и т.п.). */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.append(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* совсем нечем */ }
+    ta.remove();
+    return true;
+  }
+}
 
 export function encodeShareCode(entry) {
   return LZString.compressToEncodedURIComponent(JSON.stringify(entry));

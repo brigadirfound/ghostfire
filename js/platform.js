@@ -2,6 +2,8 @@
 // Автоопределение окружения: на Яндекс Играх подключается настоящий SDK,
 // на localhost/GitHub Pages — localStorage-заглушки. Игра этого не замечает.
 
+import { CONFIG } from './config.js';
+
 const LS_PREFIX = 'ghostfire.';
 
 let ysdk = null;       // экземпляр Яндекс SDK (null = режим заглушек)
@@ -76,6 +78,28 @@ export const Platform = {
     console.log('[platform] initSDK (stub)');
     this.ready = true;
     return true;
+  },
+
+  /**
+   * Ссылка вызова по окружению. Внутри Яндекса — ТОЛЬКО страница игры
+   * в каталоге с payload (внешние домены в шеринге запрещены правилами);
+   * null = ссылки нет, шеринг фолбэком через код.
+   */
+  getShareUrl(code) {
+    if (this.isYandex) {
+      if (!CONFIG.yandexAppId || code.length > CONFIG.yandexPayloadLimit) return null;
+      return `https://yandex.ru/games/app/${CONFIG.yandexAppId}?payload=${code}`;
+    }
+    return `${CONFIG.shareBaseUrl}?ghost=${code}`;
+  },
+
+  /** Код призрака, с которым запустили игру: payload Яндекса или ?ghost=. */
+  getLaunchPayload() {
+    try {
+      const p = ysdk?.environment?.payload;
+      if (p) return p;
+    } catch { /* нет environment */ }
+    return new URLSearchParams(location.search).get('ghost');
   },
 
   /** Сигнал "игра загружена и играбельна" — обязательное требование Яндекса.

@@ -133,6 +133,7 @@ const ui = new UI({
   getWallet: () => wallet,
   buyCoins: async (pack) => { wallet = await Platform.buyCoinsPack(pack.id, pack.coins); },
   buyOrEquipSkin,
+  getShareUrl: (code) => Platform.getShareUrl(code),
   rematchRewarded,
   resumeMatch: () => resumeMatch(),
   exitMatch: () => endMatchToMenu(),
@@ -447,10 +448,10 @@ async function boot() {
   try { shop = await (await fetch('skins/shop.json')).json(); } catch { /* магазин опционален */ }
   await ui.loadBuiltinGhosts();
 
-  // принятие вызова из URL: ?ghost=код
-  const urlCode = new URLSearchParams(location.search).get('ghost');
-  const urlEntry = urlCode ? decodeShareCode(urlCode) : null;
-  if (urlEntry) ui.buildChallenge(urlCode);
+  // принятие вызова: payload Яндекса или ?ghost= из URL
+  const launchCode = Platform.getLaunchPayload();
+  const launchEntry = launchCode ? decodeShareCode(launchCode) : null;
+  if (launchEntry) ui.buildChallenge(launchCode);
   else ui.buildMenu();
 
   Platform.gameReady(); // сигнал Яндексу: игра играбельна
