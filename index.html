@@ -78,6 +78,11 @@
   #round-banner { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font-size: 40px; font-weight: 900; text-shadow: 3px 3px 0 #000; text-align: center; }
   #toast { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); background: #232a33; border: 2px solid var(--accent2); border-radius: 8px; padding: 10px 22px; font-weight: 700; z-index: 60; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; text-align: center; }
   #toast.show { opacity: 1; }
+  .reward-box { width: min(340px, 86vw); background: #1a2028; border: 2px solid #2a3038; border-radius: 8px; padding: 10px 16px; }
+  .reward-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 15px; }
+  .reward-row b { color: var(--accent2); }
+  .reward-row.bonus span { color: #ffd75e; }
+  .reward-row.total { border-top: 1px solid #2a3038; margin-top: 4px; padding-top: 7px; font-weight: 900; }
   .bigscore { font-size: clamp(64px, 14vw, 120px); font-weight: 900; letter-spacing: 6px; text-shadow: 5px 5px 0 #000; }
   .bigscore .me { color: var(--accent2); } .bigscore .foe { color: var(--accent); }
 

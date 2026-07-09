@@ -130,6 +130,10 @@ export const Platform = {
   },
 
   async showInterstitialAd(placement) {
+    // не чаще раза в 3 минуты — и на Яндексе, и в заглушке
+    const now = Date.now();
+    if (now - (this._lastInterstitialAt ?? 0) < 180000) return false;
+    this._lastInterstitialAt = now;
     if (ysdk) {
       return new Promise((resolve) => {
         ysdk.adv.showFullscreenAdv({

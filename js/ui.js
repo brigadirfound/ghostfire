@@ -93,6 +93,8 @@ export class UI {
         );
         card.onclick = () => {
           const entry = synthBotForMap(this.a.getCustomMap(), i);
+          entry._builtin = true;
+          entry._diffMult = [1, 2, 3][i];
           this.a.startMatch('__custom', entry);
         };
         s.append(card);
@@ -117,7 +119,8 @@ export class UI {
         el('div', '', `<div class="gname">${t('bot')} ${i + 1} · ${g.name}</div>`),
         el('div', 'gdiff', '★'.repeat(i + 1)),
       );
-      card.onclick = () => this.a.startMatch(this.selectedMap, g);
+      card.onclick = () => this.a.startMatch(this.selectedMap,
+        { ...g, _builtin: true, _diffMult: [1, 1.5, 2, 2.5, 3][i] });
       s.append(card);
     });
     const mine = this.a.getPlayerGhost();
@@ -275,7 +278,7 @@ export class UI {
     this.show('round');
   }
 
-  showMatchScreen(playerScore, ghostScore, accuracy, won, ghostEntry) {
+  showMatchScreen(playerScore, ghostScore, accuracy, won, ghostEntry, reward = null) {
     const s = $('screen-match');
     s.innerHTML = '';
     s.append(
@@ -283,6 +286,29 @@ export class UI {
       el('div', 'bigscore', `<span class="me">${playerScore}</span> : <span class="foe">${ghostScore}</span>`),
       el('div', '', `${t('accuracy')}: ${Math.round(accuracy * 100)}%`),
     );
+    // разбивка награды за матч
+    if (reward) {
+      const box = el('div', 'reward-box');
+      for (const l of reward.lines) {
+        box.append(el('div', 'reward-row',
+          `<span>${t(l.key)}${l.suffix ?? ''}</span><b>+${l.amount}</b>`));
+      }
+      if (reward.firstWin) {
+        box.append(el('div', 'reward-row bonus', `<span>${t('rewardFirstWin')}</span><b></b>`));
+      }
+      box.append(el('div', 'reward-row total',
+        `<span>${t('rewardTotal')}</span><b>+${reward.total} 👻</b>`));
+      s.append(box);
+      if (reward.total > 0 && !reward.doubled) {
+        const dbl = this._btn(t('rewardDouble') + ' 📺', 'small', async () => {
+          if (await this.a.doubleReward()) {
+            dbl.remove();
+            this.toast(`+${reward.total} 👻`);
+          }
+        });
+        s.append(dbl);
+      }
+    }
     const row = el('div', 'row');
     const mine = this.a.getPlayerGhost();
     if (won && mine) {

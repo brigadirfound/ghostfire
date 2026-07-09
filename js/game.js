@@ -8,6 +8,7 @@ import { Recorder, decode, TICK_RATE } from './replay.js';
 import { MobileControls, IS_TOUCH } from './mobile.js';
 import { UI, decodeShareCode } from './ui.js';
 import { Platform } from './platform.js';
+import { computeMatchReward, applyMatchReward } from './economy.js';
 import { Sound } from './audio.js';
 import { t, setLang } from './i18n.js';
 
@@ -134,6 +135,7 @@ const ui = new UI({
   buyCoins: async (pack) => { wallet = await Platform.buyCoinsPack(pack.id, pack.coins); },
   buyOrEquipSkin,
   getShareUrl: (code) => Platform.getShareUrl(code),
+  doubleReward: doubleMatchReward,
   rematchRewarded,
   resumeMatch: () => resumeMatch(),
   exitMatch: () => endMatchToMenu(),
@@ -407,8 +409,23 @@ async function endMatch() {
     persist();
   }
   Platform.submitScore('wins', G.score.me);
-  ui.showMatchScreen(G.score.me, G.score.foe, acc, won, G.ghostEntry);
-  if (!won) Platform.showInterstitialAd('match_lost_screen');
+  // награда ТОЛЬКО за завершённый матч
+  G.lastReward = computeMatchReward(won, G.score.foe, G.ghostEntry, wallet);
+  applyMatchReward(wallet, G.lastReward, won);
+  await Platform.saveWallet(wallet);
+  ui.showMatchScreen(G.score.me, G.score.foe, acc, won, G.ghostEntry, G.lastReward);
+  Platform.showInterstitialAd('match_end'); // кулдаун 3 мин внутри Platform
+}
+
+/** Rewarded "Удвоить награду": начисляет ту же сумму ещё раз, одноразово. */
+async function doubleMatchReward() {
+  if (!G.lastReward || G.lastReward.doubled || G.lastReward.total <= 0) return false;
+  const granted = await Platform.showRewardedAd('double_match_reward');
+  if (!granted) return false;
+  G.lastReward.doubled = true;
+  wallet.coins += G.lastReward.total;
+  await Platform.saveWallet(wallet);
+  return true;
 }
 
 async function rematchRewarded() {
