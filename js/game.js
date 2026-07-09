@@ -119,16 +119,39 @@ const G = {
 const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true };
 
 let customMap = null;
+let shop = { packs: [], skins: [] };
+let wallet = { coins: 0, owned: ['default'], equipped: 'default' };
+let defaultSkin = null;
+
 const ui = new UI({
   settings,
   startMatch,
   saveSettings: persist,
   getPlayerGhost: () => G.playerGhost,
   getCustomMap: () => customMap,
+  getShop: () => shop,
+  getWallet: () => wallet,
+  buyCoins: async (pack) => { wallet = await Platform.buyCoinsPack(pack.id, pack.coins); },
+  buyOrEquipSkin,
   rematchRewarded,
   resumeMatch: () => resumeMatch(),
   exitMatch: () => endMatchToMenu(),
 });
+
+/** Покупка/надевание скина из магазина. Возвращает 'ok' | 'poor'. */
+async function buyOrEquipSkin(item) {
+  if (!wallet.owned.includes(item.id)) {
+    if (wallet.coins < item.price) return 'poor';
+    wallet.coins -= item.price;
+    wallet.owned.push(item.id);
+  }
+  wallet.equipped = item.id;
+  await Platform.saveWallet(wallet);
+  const skin = item.skin ?? defaultSkin;
+  await Platform.saveSkin(skin);
+  G.skin = skin;
+  return 'ok';
+}
 const mobile = new MobileControls(settings);
 
 // ---------- pointer lock (десктоп) + фолбэк без него ----------
@@ -247,7 +270,12 @@ async function startMatch(mapId, ghostEntry, keepScore = false) {
 }
 
 function startRound() {
-  const spawn = G.map.spawns[0];
+  // игрок спавнится на точке, ДАЛЬНЕЙ от старта записи призрака —
+  // иначе против шеренного призрака оба окажутся на одном спавне
+  const gs = G.ghost.replay.frames[0] ?? { x: 0, z: 0 };
+  const spawn = [...G.map.spawns].sort((a, b) =>
+    ((b.pos.x - gs.x) ** 2 + (b.pos.z - gs.z) ** 2) -
+    ((a.pos.x - gs.x) ** 2 + (a.pos.z - gs.z) ** 2))[0] ?? G.map.spawns[0];
   G.player.spawn(spawn);
   G.player.recorder = null;
   G.ghost.reset();
@@ -411,9 +439,12 @@ async function boot() {
   Sound.setEnabled(settings.sound);
   mobile.applyFireMode();
 
-  // пользовательский скин из редактора имеет приоритет над стандартным
-  G.skin = (await Platform.loadSkin()) ?? await (await fetch('skins/default.json')).json();
+  // пользовательский скин (редактор или магазин) поверх стандартного
+  defaultSkin = await (await fetch('skins/default.json')).json();
+  G.skin = (await Platform.loadSkin()) ?? defaultSkin;
   customMap = await Platform.loadCustomMap();
+  wallet = await Platform.loadWallet();
+  try { shop = await (await fetch('skins/shop.json')).json(); } catch { /* магазин опционален */ }
   await ui.loadBuiltinGhosts();
 
   // принятие вызова из URL: ?ghost=код

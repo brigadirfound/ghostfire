@@ -51,8 +51,13 @@ function synthGhost({ mapId, waypoints, speed, jumpEvery, strafe, accuracy, head
     const sw = Math.sin(strafeT * (2 + strafe * 3)) * strafe;
     const mx = dx + -dz * sw, mz = dz + dx * sw;
     const ml = Math.hypot(mx, mz) || 1;
-    pos.x += (mx / ml) * speed * dt;
-    pos.z += (mz / ml) * speed * dt;
+    // по-осевое движение с проверкой стен (шаг вверх максимум 1 блок),
+    // чтобы стрейф не заносил бота сквозь стены
+    const g0 = groundY(map, pos.x, pos.z);
+    const stepX = (mx / ml) * speed * dt;
+    const stepZ = (mz / ml) * speed * dt;
+    if (groundY(map, pos.x + stepX, pos.z) - g0 <= 1.01) pos.x += stepX;
+    if (groundY(map, pos.x, pos.z + stepZ) - g0 <= 1.01) pos.z += stepZ;
 
     // прыжки
     jumpT -= dt;

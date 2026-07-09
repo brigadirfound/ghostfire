@@ -65,8 +65,13 @@ export function synthBotForMap(mapData, diff) {
     const sw = Math.sin(strafeT * (2 + d.strafe * 3)) * d.strafe;
     const mx = dx + -dz * sw, mz = dz + dx * sw;
     const ml = Math.hypot(mx, mz) || 1;
-    pos.x += (mx / ml) * d.speed * dt;
-    pos.z += (mz / ml) * d.speed * dt;
+    // по-осевое движение с проверкой стен: шаг вверх максимум на 1 блок,
+    // иначе бот (особенно с сильным стрейфом) виляет сквозь стены
+    const g0 = groundY(pos.x, pos.z);
+    const stepX = (mx / ml) * d.speed * dt;
+    const stepZ = (mz / ml) * d.speed * dt;
+    if (groundY(pos.x + stepX, pos.z) - g0 <= 1.01) pos.x += stepX;
+    if (groundY(pos.x, pos.z + stepZ) - g0 <= 1.01) pos.z += stepZ;
 
     jumpT -= dt;
     if (jumpT <= 0 && !airborne) {

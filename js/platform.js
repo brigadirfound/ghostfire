@@ -70,6 +70,35 @@ export const Platform = {
     } catch { return null; }
   },
 
+  // --- Экономика: госткоины ---
+  // Внутренняя валюта. Яны (Яндекс Payments) конвертируются в госткоины
+  // ТОЛЬКО в одну сторону через buyCoinsPack — вся UGC-экономика (скины,
+  // проценты авторам) живёт в коинах, в каталоге Яндекса только паки.
+
+  async loadWallet() {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + 'wallet');
+      return raw ? JSON.parse(raw) : { coins: 100, owned: ['default'] }; // стартовый бонус
+    } catch { return { coins: 100, owned: ['default'] }; }
+  },
+
+  async saveWallet(wallet) {
+    try { localStorage.setItem(LS_PREFIX + 'wallet', JSON.stringify(wallet)); return true; }
+    catch { return false; }
+  },
+
+  /**
+   * Покупка пака госткоинов за Яны. Заглушка сразу выдаёт коины;
+   * в Яндекс-версии здесь ysdk.getPayments().purchase({id: packId}).
+   */
+  async buyCoinsPack(packId, coins) {
+    console.log(`[platform] buyCoinsPack("${packId}") (stub) → +${coins} coins`);
+    const w = await this.loadWallet();
+    w.coins += coins;
+    await this.saveWallet(w);
+    return w;
+  },
+
   async saveCustomMap(mapData) {
     try { localStorage.setItem(LS_PREFIX + 'custommap', JSON.stringify(mapData)); return true; }
     catch { return false; }

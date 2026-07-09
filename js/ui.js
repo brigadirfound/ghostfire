@@ -19,7 +19,7 @@ export class UI {
    */
   constructor(actions) {
     this.a = actions;
-    this.screens = ['menu', 'maps', 'ghosts', 'challenge', 'settings', 'pause', 'round', 'match'];
+    this.screens = ['menu', 'maps', 'ghosts', 'challenge', 'shop', 'settings', 'pause', 'round', 'match'];
     this.selectedMap = 'arena01';
     this.builtinGhosts = [];   // [{name, wrapper}]
   }
@@ -55,6 +55,7 @@ export class UI {
     s.append(
       this._btn(t('play'), 'primary', () => this.buildMaps()),
       this._btn(t('challenges'), '', () => this.buildChallenge()),
+      this._btn(t('shop') + ' 👻', '', () => this.buildShop()),
       this._btn(t('editor'), '', () => { location.href = 'editor.html'; }),
       this._btn(t('settings'), '', () => this.buildSettings()),
     );
@@ -159,6 +160,55 @@ export class UI {
     }
     s.append(this._btn(t('back'), 'small', () => this.show('menu')));
     this.show('challenge');
+  }
+
+  /** Магазин: баланс госткоинов, паки за Яны (заглушки), скины. */
+  async buildShop(statusMsg = '') {
+    const s = $('screen-shop');
+    const shop = this.a.getShop();
+    const wallet = this.a.getWallet();
+    s.innerHTML = '';
+    s.append(el('h2', '', t('shop')));
+    s.append(el('div', 'bigscore', `👻 <span class="me">${wallet.coins}</span>`));
+    // паки коинов за Яны (заглушка Яндекс Payments)
+    const packs = el('div', 'row');
+    for (const p of shop.packs) {
+      packs.append(this._btn(`+${p.coins} 👻 · ${p.priceYan} ${t('yan')}`, 'small', async () => {
+        await this.a.buyCoins(p);
+        this.buildShop();
+      }));
+    }
+    s.append(packs);
+    // скины
+    const grid = el('div', 'row');
+    const dot = (c) => `<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${c};margin-right:4px;vertical-align:middle"></span>`;
+    const items = [{ id: 'default', name: t('skinDefault'), price: 0, skin: null }, ...shop.skins];
+    for (const item of items) {
+      const card = el('div', 'map-card');
+      const sk = item.skin;
+      const dots = sk
+        ? dot(sk.body.head) + dot(sk.body.torso) + dot(sk.weapons.railgun.accent) + dot(sk.tracer)
+        : dot('#ffcc88') + dot('#2277dd') + dot('#33ddff') + dot('#ffdd55');
+      const owned = wallet.owned.includes(item.id);
+      const equipped = (wallet.equipped ?? 'default') === item.id;
+      const state = equipped ? t('equipped') : owned ? t('equip') : `${item.price} 👻`;
+      card.append(
+        el('div', 'map-name', item.name),
+        el('div', '', dots),
+        el('div', 'map-desc', state),
+      );
+      if (equipped) card.classList.add('selected');
+      card.onclick = async () => {
+        if (equipped) return;
+        const res = await this.a.buyOrEquipSkin(item);
+        this.buildShop(res === 'poor' ? t('notEnoughCoins') : '');
+      };
+      grid.append(card);
+    }
+    s.append(grid);
+    if (statusMsg) s.append(el('div', 'gdesc', statusMsg));
+    s.append(this._btn(t('back'), 'small', () => this.show('menu')));
+    this.show('shop');
   }
 
   /** Пауза посреди матча: продолжить / настройки / выход. */

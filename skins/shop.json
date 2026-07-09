@@ -1,0 +1,79 @@
+{
+  "packs": [
+    { "id": "pack_s", "coins": 200, "priceYan": 10 },
+    { "id": "pack_m", "coins": 550, "priceYan": 25 },
+    { "id": "pack_l", "coins": 1200, "priceYan": 50 }
+  ],
+  "skins": [
+    {
+      "id": "neon", "name": "Неон", "price": 150,
+      "skin": {
+        "id": "neon", "name": "Неон",
+        "body": { "head": "#1a1a2e", "torso": "#ff2fd6", "arms": "#1a1a2e", "legs": "#2b2b45" },
+        "ghostTint": "#ff2fd6", "ghostOpacity": 0.85,
+        "weapons": {
+          "pistol": { "body": "#2b2b45", "grip": "#1a1a2e", "accent": "#ff2fd6" },
+          "shotgun": { "body": "#2b2b45", "grip": "#1a1a2e", "accent": "#00ffd0" },
+          "railgun": { "body": "#1a1a2e", "grip": "#2b2b45", "accent": "#ff2fd6" }
+        },
+        "tracer": "#ff2fd6", "railTracer": "#00ffd0"
+      }
+    },
+    {
+      "id": "gold", "name": "Золото", "price": 400,
+      "skin": {
+        "id": "gold", "name": "Золото",
+        "body": { "head": "#ffd75e", "torso": "#b8860b", "arms": "#ffd75e", "legs": "#6b4e0a" },
+        "ghostTint": "#ffd75e", "ghostOpacity": 0.85,
+        "weapons": {
+          "pistol": { "body": "#b8860b", "grip": "#6b4e0a", "accent": "#fff3b0" },
+          "shotgun": { "body": "#b8860b", "grip": "#6b4e0a", "accent": "#fff3b0" },
+          "railgun": { "body": "#8a6a1a", "grip": "#6b4e0a", "accent": "#ffd75e" }
+        },
+        "tracer": "#ffd75e", "railTracer": "#fff3b0"
+      }
+    },
+    {
+      "id": "forest", "name": "Лесной", "price": 150,
+      "skin": {
+        "id": "forest", "name": "Лесной",
+        "body": { "head": "#d8c49a", "torso": "#3f6b2e", "arms": "#d8c49a", "legs": "#2c4a20" },
+        "ghostTint": "#7ec850", "ghostOpacity": 0.85,
+        "weapons": {
+          "pistol": { "body": "#4a5240", "grip": "#2c3325", "accent": "#a2d060" },
+          "shotgun": { "body": "#5a4a30", "grip": "#3a2f1e", "accent": "#a2d060" },
+          "railgun": { "body": "#33402a", "grip": "#242d1e", "accent": "#a2d060" }
+        },
+        "tracer": "#c8e860", "railTracer": "#a2d060"
+      }
+    },
+    {
+      "id": "void", "name": "Пустота", "price": 600,
+      "skin": {
+        "id": "void", "name": "Пустота",
+        "body": { "head": "#0b0b12", "torso": "#191926", "arms": "#0b0b12", "legs": "#12121c" },
+        "ghostTint": "#7a2fff", "ghostOpacity": 0.8,
+        "weapons": {
+          "pistol": { "body": "#191926", "grip": "#0b0b12", "accent": "#7a2fff" },
+          "shotgun": { "body": "#191926", "grip": "#0b0b12", "accent": "#7a2fff" },
+          "railgun": { "body": "#0b0b12", "grip": "#191926", "accent": "#a05eff" }
+        },
+        "tracer": "#a05eff", "railTracer": "#7a2fff"
+      }
+    },
+    {
+      "id": "crimson", "name": "Багровый", "price": 300,
+      "skin": {
+        "id": "crimson", "name": "Багровый",
+        "body": { "head": "#e8d0c0", "torso": "#a01020", "arms": "#e8d0c0", "legs": "#500810" },
+        "ghostTint": "#ff3040", "ghostOpacity": 0.85,
+        "weapons": {
+          "pistol": { "body": "#601018", "grip": "#38080e", "accent": "#ff3040" },
+          "shotgun": { "body": "#601018", "grip": "#38080e", "accent": "#ffb020" },
+          "railgun": { "body": "#480a12", "grip": "#38080e", "accent": "#ff3040" }
+        },
+        "tracer": "#ff5060", "railTracer": "#ff3040"
+      }
+    }
+  ]
+}
