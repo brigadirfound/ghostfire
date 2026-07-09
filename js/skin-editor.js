@@ -210,7 +210,15 @@ export function initSkinEditor(status) {
 
   document.getElementById('btn-skin-save').onclick = async () => {
     await Platform.saveSkin(skin);
-    status('Скин применён — увидишь в игре');
+    // слот "Свой скин" покупается в магазине за 300 — до этого скин лишь черновик
+    const wallet = await Platform.loadWallet();
+    if (wallet.owned.includes('custom')) {
+      wallet.equipped = 'custom';
+      await Platform.saveWallet(wallet);
+      status('Скин применён — увидишь в игре');
+    } else {
+      status('Черновик сохранён. Слот «Свой скин» открывается в магазине за 300 👻', false);
+    }
   };
   document.getElementById('btn-skin-reset').onclick = async () => {
     skin = JSON.parse(JSON.stringify(defaultSkin));

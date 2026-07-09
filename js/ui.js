@@ -3,6 +3,9 @@
 import LZString from 'lz-string';
 import { t, setLang, getLang } from './i18n.js';
 import { synthBotForMap, botNames } from './botgen.js';
+import { CONFIG } from './config.js';
+
+const BUILTIN_MULTS = [1, 1.5, 2, 2.5, 3]; // множители награды по сложности
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => {
@@ -34,6 +37,8 @@ export class UI {
   }
 
   show(name) {
+    // меню всегда перестраиваем: в нём динамические кнопки (Быстрый матч)
+    if (name === 'menu' && !this._inBuildMenu) { this.buildMenu(); return; }
     for (const s of this.screens) $(`screen-${s}`).classList.toggle('hidden', s !== name);
     $('hud').classList.toggle('hidden', name !== null);
   }
@@ -46,20 +51,30 @@ export class UI {
   // ---------- экраны ----------
 
   buildMenu() {
+    this._inBuildMenu = true;
     const s = $('screen-menu');
     s.innerHTML = '';
     s.append(
       el('div', 'logo', 'GHOST<span>FIRE</span>'),
       el('div', 'subtitle', '1v1 · voxel duel'),
     );
+    // "Быстрый матч" повторяет последний выбор карта+противник в один тап
+    if (this._quickPickValid()) {
+      s.append(this._btn(t('quickMatch') + ' ⚡', 'primary', () => this.quickMatch()));
+    }
     s.append(
-      this._btn(t('play'), 'primary', () => this.buildMaps()),
+      this._btn(t('play'), this._quickPickValid() ? '' : 'primary', () => {
+        // первый запуск — туториал вместо выбора карты
+        if (this.a.shouldTutorial()) this.a.startTutorial();
+        else this.buildMaps();
+      }),
       this._btn(t('haveCode'), '', () => this.buildChallenge()),
       this._btn(t('shop') + ' 👻', '', () => this.buildShop()),
       this._btn(t('editor'), '', () => { location.href = 'editor.html'; }),
       this._btn(t('settings'), '', () => this.buildSettings()),
     );
     this.show('menu');
+    this._inBuildMenu = false;
   }
 
   buildMaps() {
@@ -67,15 +82,24 @@ export class UI {
     s.innerHTML = '';
     s.append(el('h2', '', t('chooseMap')));
     const row = el('div', 'row');
-    const ids = ['arena01', 'arena02'];
-    if (this.a.getCustomMap()) ids.push('custom');
-    for (const id of ids) {
+    for (const id of ['arena01', 'arena02']) {
       const card = el('div', 'map-card' + (id === this.selectedMap ? ' selected' : ''));
       card.append(el('div', 'map-name', t(`map_${id}`)), el('div', 'map-desc', t(`map_${id}_desc`)));
-      card.onclick = () => { this.selectedMap = id === 'custom' ? '__custom' : id; this.buildGhosts(); };
+      card.onclick = () => { this.selectedMap = id; this.buildGhosts(); };
       row.append(card);
     }
-    s.append(row, this._btn(t('back'), 'small', () => this.show('menu')));
+    s.append(row);
+    // карты из редактора
+    if (this.a.getCustomMap()) {
+      s.append(el('h2', '', t('myMaps')));
+      const row2 = el('div', 'row');
+      const card = el('div', 'map-card' + (this.selectedMap === '__custom' ? ' selected' : ''));
+      card.append(el('div', 'map-name', t('map_custom')), el('div', 'map-desc', t('map_custom_desc')));
+      card.onclick = () => { this.selectedMap = '__custom'; this.buildGhosts(); };
+      row2.append(card);
+      s.append(row2);
+    }
+    s.append(this._btn(t('back'), 'small', () => this.show('menu')));
     this.show('maps');
   }
 
@@ -91,7 +115,9 @@ export class UI {
           el('div', '', `<div class="gname">${t('botOnMap')} · ${name}</div>`),
           el('div', 'gdiff', '★'.repeat(i + 1)),
         );
+        card.append(el('div', 'gdesc', t('rewardMult', [1, 2, 3][i])));
         card.onclick = () => {
+          this._rememberPick('__custom', { type: 'custombot', index: i });
           const entry = synthBotForMap(this.a.getCustomMap(), i);
           entry._builtin = true;
           entry._diffMult = [1, 2, 3][i];
@@ -106,7 +132,10 @@ export class UI {
           el('div', '', `<div class="gname">${t('yourGhost')}</div><div class="gdesc">${t('yourGhostDesc')}</div>`),
           el('div', 'gdiff', '👻'),
         );
-        card.onclick = () => this.a.startMatch('__custom', mine);
+        card.onclick = () => {
+          this._rememberPick('__custom', { type: 'mine' });
+          this.a.startMatch('__custom', mine);
+        };
         s.append(card);
       }
       s.append(this._btn(t('back'), 'small', () => this.buildMaps()));
@@ -114,13 +143,17 @@ export class UI {
       return;
     }
     this.builtinGhosts.forEach((g, i) => {
+      const mult = BUILTIN_MULTS[i];
       const card = el('div', 'ghost-card');
       card.append(
-        el('div', '', `<div class="gname">${t('bot')} ${i + 1} · ${g.name}</div>`),
+        el('div', '', `<div class="gname">${g.name}</div>` +
+          `<div class="gdesc">${t(`bot${i + 1}desc`)} · ${t('rewardMult', mult)}</div>`),
         el('div', 'gdiff', '★'.repeat(i + 1)),
       );
-      card.onclick = () => this.a.startMatch(this.selectedMap,
-        { ...g, _builtin: true, _diffMult: [1, 1.5, 2, 2.5, 3][i] });
+      card.onclick = () => {
+        this._rememberPick(this.selectedMap, { type: 'builtin', index: i });
+        this.a.startMatch(this.selectedMap, { ...g, _builtin: true, _diffMult: mult });
+      };
       s.append(card);
     });
     const mine = this.a.getPlayerGhost();
@@ -130,13 +163,50 @@ export class UI {
         el('div', '', `<div class="gname">${t('yourGhost')}</div><div class="gdesc">${t('yourGhostDesc')}</div>`),
         el('div', 'gdiff', '👻'),
       );
-      card.onclick = () => this.a.startMatch(mine.map ?? this.selectedMap, mine);
+      card.onclick = () => {
+        this._rememberPick(mine.map ?? this.selectedMap, { type: 'mine' });
+        this.a.startMatch(mine.map ?? this.selectedMap, mine);
+      };
     } else {
       card.style.opacity = 0.5;
       card.append(el('div', 'gdesc', t('noGhostYet')));
     }
     s.append(card, this._btn(t('back'), 'small', () => this.buildMaps()));
     this.show('ghosts');
+  }
+
+  // ---------- быстрый матч: повтор последнего выбора ----------
+
+  _rememberPick(map, ghost) {
+    this.a.settings.lastPick = { map, ghost };
+    this.a.saveSettings();
+  }
+
+  _quickPickValid() {
+    const lp = this.a.settings.lastPick;
+    if (!lp) return false;
+    if (lp.ghost.type === 'builtin') return !!this.builtinGhosts[lp.ghost.index];
+    if (lp.ghost.type === 'custombot') return !!this.a.getCustomMap();
+    if (lp.ghost.type === 'mine') return !!this.a.getPlayerGhost();
+    return false;
+  }
+
+  quickMatch() {
+    const lp = this.a.settings.lastPick;
+    if (!this._quickPickValid()) return;
+    this.selectedMap = lp.map;
+    if (lp.ghost.type === 'builtin') {
+      const g = this.builtinGhosts[lp.ghost.index];
+      this.a.startMatch(lp.map, { ...g, _builtin: true, _diffMult: BUILTIN_MULTS[lp.ghost.index] });
+    } else if (lp.ghost.type === 'custombot') {
+      const entry = synthBotForMap(this.a.getCustomMap(), lp.ghost.index);
+      entry._builtin = true;
+      entry._diffMult = [1, 2, 3][lp.ghost.index];
+      this.a.startMatch('__custom', entry);
+    } else {
+      const mine = this.a.getPlayerGhost();
+      this.a.startMatch(lp.map, mine);
+    }
   }
 
   buildChallenge(prefill = '') {
@@ -178,32 +248,39 @@ export class UI {
     s.innerHTML = '';
     s.append(el('h2', '', t('shop')));
     s.append(el('div', 'bigscore', `👻 <span class="me">${wallet.coins}</span>`));
-    // паки коинов за Яны (заглушка Яндекс Payments)
-    const packs = el('div', 'row');
-    for (const p of shop.packs) {
-      packs.append(this._btn(`+${p.coins} 👻 · ${p.priceYan} ${t('yan')}`, 'small', async () => {
-        await this.a.buyCoins(p);
-        this.buildShop();
-      }));
+    // паки коинов за Яны — скрыты, пока товары не заведены в консоли
+    if (CONFIG.paymentsEnabled) {
+      const packs = el('div', 'row');
+      for (const p of shop.packs) {
+        packs.append(this._btn(`+${p.coins} 👻 · ${p.priceYan} ${t('yan')}`, 'small', async () => {
+          await this.a.buyCoins(p);
+          this.buildShop();
+        }));
+      }
+      s.append(packs);
     }
-    s.append(packs);
-    // скины
+    // скины: дефолт + магазинные + слот "Свой скин" (редактор)
     const grid = el('div', 'row');
     const dot = (c) => `<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${c};margin-right:4px;vertical-align:middle"></span>`;
-    const items = [{ id: 'default', name: t('skinDefault'), price: 0, skin: null }, ...shop.skins];
+    const items = [
+      { id: 'default', name: t('skinDefault'), price: 0, skin: null },
+      ...shop.skins,
+      { id: 'custom', name: t('customSkin'), price: 300, skin: null, isCustom: true },
+    ];
     for (const item of items) {
       const card = el('div', 'map-card');
       const sk = item.skin;
-      const dots = sk
-        ? dot(sk.body.head) + dot(sk.body.torso) + dot(sk.weapons.railgun.accent) + dot(sk.tracer)
-        : dot('#ffcc88') + dot('#2277dd') + dot('#33ddff') + dot('#ffdd55');
+      const dots = item.isCustom ? '🎨✏️👻'
+        : sk
+          ? dot(sk.body.head) + dot(sk.body.torso) + dot(sk.weapons.railgun.accent) + dot(sk.tracer)
+          : dot('#ffcc88') + dot('#2277dd') + dot('#33ddff') + dot('#ffdd55');
       const owned = wallet.owned.includes(item.id);
       const equipped = (wallet.equipped ?? 'default') === item.id;
-      const state = equipped ? t('equipped') : owned ? t('equip') : `${item.price} 👻`;
+      const state = equipped ? t('equipped') : owned ? t('equip') : `${owned ? '' : item.isCustom ? '🔒 ' : ''}${item.price} 👻`;
       card.append(
         el('div', 'map-name', item.name),
         el('div', '', dots),
-        el('div', 'map-desc', state),
+        el('div', 'map-desc', state + (item.isCustom ? `<br>${t('customSkinDesc')}` : '')),
       );
       if (equipped) card.classList.add('selected');
       card.onclick = async () => {
