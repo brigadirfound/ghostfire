@@ -117,7 +117,72 @@ const G = {
   playerGhost: null,   // сохранённая обёртка призрака игрока
 };
 
-const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true };
+const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true, tutorialDone: false };
+
+// ---------- туториал первого запуска ----------
+const TUT = { active: false, step: 0, timer: 0 };
+
+function startTutorial() {
+  const g = ui.builtinGhosts[0];
+  if (!g) { ui.buildMaps(); return; } // призраки не загрузились — обычный флоу
+  TUT.active = true;
+  TUT.step = 1;
+  startMatch('arena01', { ...g, _builtin: true, _diffMult: 1 });
+  tutShow(t('tutHint1'));
+  document.getElementById('tut-close').onclick = () => finishTutorial(false);
+}
+
+function tutShow(text) {
+  const box = document.getElementById('tut-box');
+  box.classList.remove('hidden');
+  document.getElementById('tut-text').textContent = text;
+}
+
+function tutHide() {
+  document.getElementById('tut-box').classList.add('hidden');
+  document.getElementById('tut-arrow').classList.add('hidden');
+}
+
+function finishTutorial(won) {
+  if (!TUT.active) return;
+  TUT.active = false;
+  tutHide();
+  settings.tutorialDone = true;
+  persist();
+  if (won) ui.toast(t('tutorialWin'));
+}
+
+const _tutV = new THREE.Vector3();
+function updateTutorial(dt) {
+  if (!TUT.active) return;
+  const arrow = document.getElementById('tut-arrow');
+  if (TUT.step === 1) {
+    // стрелка над пикапом дробовика, спроецированная на экран
+    const pk = G.pickups.find(p => p.type === 1 && p.available);
+    if (pk) {
+      _tutV.copy(pk.pos).add({ x: 0, y: 1.1, z: 0 }).project(camera);
+      if (_tutV.z < 1) {
+        arrow.classList.remove('hidden');
+        arrow.style.left = THREE.MathUtils.clamp((_tutV.x * 0.5 + 0.5) * 100, 5, 95) + 'vw';
+        arrow.style.top = THREE.MathUtils.clamp((-_tutV.y * 0.5 + 0.5) * 100, 10, 90) + 'vh';
+      } else {
+        arrow.classList.add('hidden'); // пикап за спиной
+      }
+    }
+    if (G.player.weapon !== 0) { // подобрал любую пушку — шаг 2
+      arrow.classList.add('hidden');
+      TUT.step = 2;
+      TUT.timer = 5;
+      tutShow(t('tutHint2'));
+    }
+  } else if (TUT.step === 2) {
+    TUT.timer -= dt;
+    if (TUT.timer <= 0) { TUT.step = 3; TUT.timer = 6; tutShow(t('tutHint3')); }
+  } else if (TUT.step === 3) {
+    TUT.timer -= dt;
+    if (TUT.timer <= 0) { TUT.step = 4; tutHide(); }
+  }
+}
 
 let customMap = null;
 let shop = { packs: [], skins: [] };
@@ -136,6 +201,8 @@ const ui = new UI({
   buyOrEquipSkin,
   getShareUrl: (code) => Platform.getShareUrl(code),
   doubleReward: doubleMatchReward,
+  shouldTutorial: () => !settings.tutorialDone,
+  startTutorial,
   rematchRewarded,
   resumeMatch: () => resumeMatch(),
   exitMatch: () => endMatchToMenu(),
@@ -150,10 +217,16 @@ async function buyOrEquipSkin(item) {
   }
   wallet.equipped = item.id;
   await Platform.saveWallet(wallet);
-  const skin = item.skin ?? defaultSkin;
-  await Platform.saveSkin(skin);
-  G.skin = skin;
+  G.skin = await resolveActiveSkin();
   return 'ok';
+}
+
+/** Активный скин по wallet.equipped: 'custom' — из редактора, иначе магазин/дефолт. */
+async function resolveActiveSkin() {
+  const eq = wallet.equipped ?? 'default';
+  if (eq === 'custom') return (await Platform.loadSkin()) ?? defaultSkin;
+  const shopItem = shop.skins?.find(s => s.id === eq);
+  return shopItem?.skin ?? defaultSkin;
 }
 const mobile = new MobileControls(settings);
 
@@ -196,6 +269,16 @@ document.addEventListener('mousedown', (e) => {
 document.addEventListener('mouseup', (e) => {
   if (G.player && e.button === 0) G.player.input.fire = false;
 });
+// сворачивание вкладки: пауза матча и звука (требование площадок)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (G.state === 'playing' || G.state === 'countdown') pauseMatch();
+    Sound.suspend();
+  } else {
+    Sound.resume();
+  }
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') return;
   // с pointer lock браузер сам шлёт pointerlockchange; здесь — путь без лока
@@ -409,6 +492,7 @@ async function endMatch() {
     persist();
   }
   Platform.submitScore('wins', G.score.me);
+  finishTutorial(won); // если шёл туториал — завершаем (флаг + тост про вызов)
   // награда ТОЛЬКО за завершённый матч
   G.lastReward = computeMatchReward(won, G.score.foe, G.ghostEntry, wallet);
   applyMatchReward(wallet, G.lastReward, won);
@@ -436,6 +520,7 @@ async function rematchRewarded() {
 }
 
 function endMatchToMenu() {
+  finishTutorial(false); // вышел из туториала — считаем пропущенным
   G.state = 'menu';
   document.exitPointerLock?.();
   ui.show('menu');
@@ -448,8 +533,15 @@ async function persist() {
   await Platform.savePlayer({ settings, ghost: G.playerGhost });
 }
 
+function setLoadProgress(pct) {
+  const fill = document.getElementById('preloader-fill');
+  if (fill) fill.style.width = Math.round(pct * 100) + '%';
+}
+
 async function boot() {
+  setLoadProgress(0.15); // модули загружены, стартуем
   await Platform.initSDK();
+  setLoadProgress(0.35);
   const saved = await Platform.loadPlayer();
   if (saved?.settings) Object.assign(settings, saved.settings);
   if (saved?.ghost) G.playerGhost = saved.ghost;
@@ -457,13 +549,15 @@ async function boot() {
   Sound.setEnabled(settings.sound);
   mobile.applyFireMode();
 
-  // пользовательский скин (редактор или магазин) поверх стандартного
   defaultSkin = await (await fetch('skins/default.json')).json();
-  G.skin = (await Platform.loadSkin()) ?? defaultSkin;
   customMap = await Platform.loadCustomMap();
   wallet = await Platform.loadWallet();
   try { shop = await (await fetch('skins/shop.json')).json(); } catch { /* магазин опционален */ }
+  // активный скин: слот из редактора / купленный в магазине / стандартный
+  G.skin = await resolveActiveSkin();
+  setLoadProgress(0.6);
   await ui.loadBuiltinGhosts();
+  setLoadProgress(0.95);
 
   // принятие вызова: payload Яндекса или ?ghost= из URL
   const launchCode = Platform.getLaunchPayload();
@@ -471,7 +565,10 @@ async function boot() {
   if (launchEntry) ui.buildChallenge(launchCode);
   else ui.buildMenu();
 
-  Platform.gameReady(); // сигнал Яндексу: игра играбельна
+  // прячем прелоадер, и только затем сигналим Яндексу о готовности
+  setLoadProgress(1);
+  document.getElementById('preloader')?.classList.add('done');
+  Platform.gameReady();
   requestAnimationFrame(loop);
 }
 
@@ -505,6 +602,7 @@ function tick(dt) {
       ui.setWeapon(WEAPONS[G.player.weapon].key);
       ui.setCharging(G.player.charging);
       ui.setHP(G.player.hp);
+      updateTutorial(dt);
     }
   }
 

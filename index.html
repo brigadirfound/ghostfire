@@ -83,6 +83,13 @@
   .reward-row b { color: var(--accent2); }
   .reward-row.bonus span { color: #ffd75e; }
   .reward-row.total { border-top: 1px solid #2a3038; margin-top: 4px; padding-top: 7px; font-weight: 900; }
+  #tut-box { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); background: #1a2028ee; border: 2px solid var(--accent2); border-radius: 10px; padding: 12px 14px 12px 20px; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 12px; pointer-events: auto; max-width: 92vw; }
+  #tut-close { background: none; border: none; color: #fff8; font-size: 20px; cursor: pointer; padding: 2px 6px; }
+  #tut-arrow { position: absolute; font-size: 44px; text-shadow: 2px 2px 0 #000; transform: translate(-50%, -100%); transition: left .1s linear, top .1s linear; }
+  #preloader { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; transition: opacity .35s; }
+  #preloader.done { opacity: 0; pointer-events: none; }
+  #preloader-bar { width: min(320px, 70vw); height: 14px; background: #232a33; border: 2px solid #3a4450; border-radius: 8px; overflow: hidden; }
+  #preloader-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .25s; }
   .bigscore { font-size: clamp(64px, 14vw, 120px); font-weight: 900; letter-spacing: 6px; text-shadow: 5px 5px 0 #000; }
   .bigscore .me { color: var(--accent2); } .bigscore .foe { color: var(--accent); }
 
@@ -101,14 +108,19 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/",
-    "lz-string": "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/+esm"
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/",
+    "lz-string": "./vendor/lz-string.js"
   }
 }
 </script>
 </head>
 <body>
+<!-- прелоадер: виден сразу, до загрузки модулей; прячет game.js после boot -->
+<div id="preloader">
+  <div class="logo">GHOST<span>FIRE</span></div>
+  <div id="preloader-bar"><div id="preloader-fill"></div></div>
+</div>
 <canvas id="game-canvas"></canvas>
 
 <!-- HUD -->
@@ -121,6 +133,9 @@
   <div id="score-mini">0 : 0</div>
   <div id="countdown" class="hidden"></div>
   <div id="round-banner" class="hidden"></div>
+  <!-- туториал первого запуска -->
+  <div id="tut-box" class="hidden"><span id="tut-text"></span><button id="tut-close">✕</button></div>
+  <div id="tut-arrow" class="hidden">👇</div>
 </div>
 
 <!-- Mobile -->

@@ -3,6 +3,7 @@
 // на localhost/GitHub Pages — localStorage-заглушки. Игра этого не замечает.
 
 import { CONFIG } from './config.js';
+import { Sound } from './audio.js';
 
 const LS_PREFIX = 'ghostfire.';
 
@@ -114,13 +115,15 @@ export const Platform = {
    */
   async showRewardedAd(placement) {
     if (ysdk) {
+      Sound.suspend(); // глушим игру на время рекламы
       return new Promise((resolve) => {
         let rewarded = false;
+        const done = (v) => { Sound.resume(); resolve(v); };
         ysdk.adv.showRewardedVideo({
           callbacks: {
             onRewarded: () => { rewarded = true; },
-            onClose: () => resolve(rewarded),
-            onError: (e) => { console.warn('[platform] rewarded error', e); resolve(false); },
+            onClose: () => done(rewarded),
+            onError: (e) => { console.warn('[platform] rewarded error', e); done(false); },
           },
         });
       });
@@ -135,11 +138,13 @@ export const Platform = {
     if (now - (this._lastInterstitialAt ?? 0) < 180000) return false;
     this._lastInterstitialAt = now;
     if (ysdk) {
+      Sound.suspend();
       return new Promise((resolve) => {
+        const done = (v) => { Sound.resume(); resolve(v); };
         ysdk.adv.showFullscreenAdv({
           callbacks: {
-            onClose: () => resolve(true),
-            onError: (e) => { console.warn('[platform] interstitial error', e); resolve(false); },
+            onClose: () => done(true),
+            onError: (e) => { console.warn('[platform] interstitial error', e); done(false); },
           },
         });
       });

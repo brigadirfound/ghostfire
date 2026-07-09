@@ -12,6 +12,8 @@ export const Sound = {
     master.connect(ctx.destination);
   },
   resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
+  /** Глушим на время рекламы и при сворачивании вкладки. */
+  suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); },
   setEnabled(v) { enabled = v; if (master) master.gain.value = v ? 0.5 : 0; },
 
   pistol() { shotBase(900, 0.09, 'square', 0.5); noiseBurst(0.05, 2200, 0.25); },
