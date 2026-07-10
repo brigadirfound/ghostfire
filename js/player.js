@@ -73,12 +73,17 @@ export class Player {
     const g = new THREE.Group();
     const skinMat = new THREE.MeshLambertMaterial({ color: this.skin.body.arms });
     const sleeveMat = new THREE.MeshLambertMaterial({ color: this.skin.body.torso });
+    // яркая полоска цветом трассера — чтобы кисть не сливалась с тёмными
+    // пушками/скинами (Пустота и т.п.), где кожа/торс почти чёрные
+    const trimMat = new THREE.MeshBasicMaterial({ color: this.skin.tracer });
     const fist = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.22), skinMat);
     fist.position.set(0, 0, 0.03);
     const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.16), sleeveMat);
     sleeve.position.set(0, -0.03, 0.21);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.185, 0.03, 0.165), trimMat);
+    trim.position.set(0, 0.06, 0.21);
     fist.castShadow = sleeve.castShadow = true;
-    g.add(fist, sleeve);
+    g.add(fist, sleeve, trim);
     return g;
   }
 
@@ -106,6 +111,7 @@ export class Player {
     this.pitch = 0;
     this.hp = 100;
     this.alive = true;
+    this.hand.visible = true; // защита от гонки состояний между матчами
     this.setWeapon(0);
     this.cooldown = 0;
     this.charge = 0;

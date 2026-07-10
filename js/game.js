@@ -28,8 +28,13 @@ scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под
 
 // скайбокс: воксельный город на закате (assets/skybox.jpg, генерация
 // tools/gen_skybox.mjs); при ошибке загрузки остаётся цветной фон
+// ВАЖНО: без EquirectangularReflectionMapping — картинка нарисована как
+// широкий кадр города, а не честная сферическая 360° проекция; equirect-режим
+// сэмплирует её по направлению взгляда и на полюсах/спереди-сзади схлопывает
+// в одну точку ("tiny planet"). Обычная плоская текстура фона (дефолтный
+// mapping) рендерится как статичный задник в экранных координатах — без
+// искажений, город просто не поворачивается вслед за камерой.
 new THREE.TextureLoader().load('assets/skybox.jpg', (tex) => {
-  tex.mapping = THREE.EquirectangularReflectionMapping;
   tex.colorSpace = THREE.SRGBColorSpace;
   scene.background = tex;
 });
