@@ -117,6 +117,9 @@ export class UI {
   }
 
   async buildGhosts() {
+    // защита от гонки: два быстрых вызова (даблклик по карте) дописывали
+    // карточки дважды — доживает только последняя сборка
+    const buildId = (this._ghostsBuildId = (this._ghostsBuildId ?? 0) + 1);
     const s = $('screen-ghosts');
     s.innerHTML = '';
     s.append(el('h2', '', t('chooseGhost')));
@@ -156,6 +159,7 @@ export class UI {
       return;
     }
     const builtin = await this.ghostsForMap(this.selectedMap);
+    if (buildId !== this._ghostsBuildId) return; // пришла более свежая сборка
     builtin.forEach((g, i) => {
       const mult = BUILTIN_MULTS[i];
       const card = el('div', 'ghost-card');

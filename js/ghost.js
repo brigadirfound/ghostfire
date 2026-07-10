@@ -130,6 +130,14 @@ export class Ghost {
     const s = this.replay.sample(this.time, this._sample);
     if (!s) return;
 
+    // запись зациклена: на перемотке в начало сбрасываем индексы событий,
+    // иначе после первого круга призрак перестаёт стрелять и подбирать
+    if (s.tick < this._lastTick) {
+      this._shotIdx = 0;
+      this._pickupIdx = 0;
+    }
+    this._lastTick = s.tick;
+
     const prevY = this.pos.y;
     this.pos.set(s.x, s.y, s.z);
     this.yaw = s.yaw;
