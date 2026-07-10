@@ -29,11 +29,36 @@ export const WEAPONS = [
 
 const MODEL_URL = (key) => `assets/weapons/${key}.gltf`;
 const _loader = new GLTFLoader();
-const _rawCache = new Map();      // key -> Promise<THREE.Group> (нетронутая геометрия)
+const _rawCache = new Map();      // key -> Promise<THREE.Group> (нормализованная геометрия)
+
+// Исходники пака смотрят стволом вдоль +X (а не вдоль -Z, как ждёт наш код) и
+// у каждой модели свой произвольный масштаб (метры пака ≠ метры игры — иначе
+// пушки на земле выходили огромными, а в руке "плашмя" боком к камере).
+// Целевая длина "от руки до дула" в игровых метрах, подобрана на глаз по
+// пропорциям категории оружия.
+const TARGET_LENGTH = {
+  pistol: 0.3, smg: 0.6, ar: 0.82, shotgun: 0.95, sniper: 1.15, railgun: 0.85,
+};
+
+/** Поворачивает +X→-Z, центрирует по bbox и калибрует длину под TARGET_LENGTH. */
+function normalizeModel(raw, key) {
+  raw.rotation.y = Math.PI / 2; // локальный +X теперь смотрит в мировой -Z (вперёд)
+  raw.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(raw);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  raw.position.sub(center); // геометрический центр модели → начало координат
+
+  const wrapper = new THREE.Group();
+  wrapper.add(raw);
+  const forwardExtent = size.z || 1; // после поворота "длина ствола" лежит в Z
+  wrapper.scale.setScalar((TARGET_LENGTH[key] ?? 0.6) / forwardExtent);
+  return wrapper;
+}
 
 function loadRawModel(key) {
   if (!_rawCache.has(key)) {
-    _rawCache.set(key, _loader.loadAsync(MODEL_URL(key)).then((gltf) => gltf.scene));
+    _rawCache.set(key, _loader.loadAsync(MODEL_URL(key)).then((gltf) => normalizeModel(gltf.scene, key)));
   }
   return _rawCache.get(key);
 }
@@ -106,7 +131,8 @@ export class Pickup {
     this.respawnTime = 10;
     this.timer = 0;         // >0 — ждём респауна
     this.mesh = buildWeaponModel(spot.type, skin);
-    this.mesh.scale.setScalar(1.6);
+    // GLTF-модели уже нормализованы до реальных TARGET_LENGTH в normalizeModel —
+    // доп. множитель не нужен (раньше был 1.6× под крошечные процедурные модели)
     this.mesh.position.copy(this.pos);
     scene.add(this.mesh);
     this._t = Math.random() * 10;
