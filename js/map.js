@@ -4,14 +4,25 @@
 // Формат maps/*.json:
 // {
 //   "id": "arena01", "name": "...",
-//   "palette": { "1": "#hex", "2": "#hex", ... },   тип блока → цвет
+//   "palette": { "1": "#hex" | {"color": "#hex", "tex": "stone"}, ... },
+//       tex — имя тайла из textures.js (или "grass_dirt": верх трава, бока земля);
+//       строка "#hex" — легаси-формат старых UGC-карт, рендерится чистым цветом
 //   "blocks": [[x, y, z, type], ...],               воксели, шаг сетки = 1 м
 //   "spawns": [[x, y, z, yawDeg], [x, y, z, yawDeg]],
 //   "weapons": [{ "type": 1|2, "pos": [x, y, z] }]  1 — дробовик, 2 — рейлган
 // }
 
+/** Нормализация записи палитры: строка или {color, tex} → {color, tex}. */
+export function paletteEntry(palette, type) {
+  const raw = palette?.[String(type)];
+  if (!raw) return { color: '#ff00ff', tex: null };
+  if (typeof raw === 'string') return { color: raw, tex: null };
+  return { color: raw.color ?? '#ff00ff', tex: raw.tex ?? null };
+}
+
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { TILE, getAtlas, tileUV } from './textures.js';
 
 export class GameMap {
   constructor(data) {
@@ -44,7 +55,7 @@ export class GameMap {
   _buildMesh() {
     const geoms = [];
     const color = new THREE.Color();
-    const jitter = mulberry32(12345); // детерминированная "текстура" из вариаций тона
+    const jitter = mulberry32(12345); // детерминированная вариация тона
     for (const [x, y, z, type] of this.data.blocks) {
       // скрытые блоки (окружены со всех сторон) не рендерим
       if (this.isSolid(x + 1, y, z) && this.isSolid(x - 1, y, z) &&
@@ -52,18 +63,37 @@ export class GameMap {
           this.isSolid(x, y, z + 1) && this.isSolid(x, y, z - 1)) continue;
       const g = new THREE.BoxGeometry(1, 1, 1);
       g.translate(x + 0.5, y + 0.5, z + 0.5);
-      color.set(this.data.palette[String(type)] ?? '#ff00ff');
+      const entry = paletteEntry(this.data.palette, type);
+      color.set(entry.color);
       const v = 0.92 + jitter() * 0.16;
       const c = color.clone().multiplyScalar(v);
       const count = g.attributes.position.count;
       const colors = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) { colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b; }
       g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      // UV на тайл атласа: грань 2 — верх, грань 3 — низ, остальные бока
+      let topTile, sideTile, bottomTile;
+      if (entry.tex === 'grass_dirt') {
+        topTile = TILE.grass; sideTile = TILE.dirt; bottomTile = TILE.dirt;
+      } else {
+        topTile = sideTile = bottomTile = TILE[entry.tex] ?? TILE.plain;
+      }
+      const uv = g.attributes.uv;
+      for (let f = 0; f < 6; f++) {
+        const r = tileUV(f === 2 ? topTile : f === 3 ? bottomTile : sideTile);
+        for (let vtx = 0; vtx < 4; vtx++) {
+          const i = f * 4 + vtx;
+          uv.setXY(i, r.u0 + uv.getX(i) * (r.u1 - r.u0), r.v0 + uv.getY(i) * (r.v1 - r.v0));
+        }
+      }
       geoms.push(g);
     }
     const merged = mergeGeometries(geoms, false);
     geoms.forEach(g => g.dispose());
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    // один материал с атласом = один draw call; transparent — ради тайла стекла
+    const mat = new THREE.MeshLambertMaterial({
+      vertexColors: true, map: getAtlas(), transparent: true, alphaTest: 0.05,
+    });
     const mesh = new THREE.Mesh(merged, mat);
     mesh.castShadow = true;
     mesh.receiveShadow = true;

@@ -3,13 +3,20 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import LZString from 'lz-string';
-import { GameMap } from './map.js';
+import { GameMap, paletteEntry } from './map.js';
 import { Platform } from './platform.js';
 import { initSkinEditor } from './skin-editor.js';
+import { tilePreviewURL } from './textures.js';
 
 const DEFAULT_PALETTE = {
-  1: '#7ec850', 2: '#8a8f98', 3: '#d98f33', 4: '#c0563e',
-  5: '#3f7fd4', 6: '#e8c84a', 7: '#4a5058', 8: '#e8e8e8',
+  1: { color: '#7ec850', tex: 'grass_dirt' },
+  2: { color: '#8a8f98', tex: 'stone' },
+  3: { color: '#d98f33', tex: 'crate' },
+  4: { color: '#c0563e', tex: 'brick' },
+  5: { color: '#3f7fd4', tex: 'metal' },
+  6: { color: '#e8c84a', tex: 'sand' },
+  7: { color: '#4a5058', tex: 'concrete' },
+  8: { color: '#e8e8e8', tex: 'glass' },
 };
 
 const status = (msg, ok = true) => {
@@ -165,10 +172,20 @@ document.querySelectorAll('.tool').forEach(btn => {
 function buildPalette() {
   const pal = document.getElementById('palette');
   pal.innerHTML = '';
-  for (const [t, color] of Object.entries(ed.palette)) {
+  for (const t of Object.keys(ed.palette)) {
+    const e = paletteEntry(ed.palette, t);
     const d = document.createElement('div');
     d.className = 'pal' + (Number(t) === ed.blockType ? ' active' : '');
-    d.style.background = color;
+    // превью: тайл атласа с тонировкой цветом палитры
+    const texName = e.tex === 'grass_dirt' ? 'grass' : e.tex;
+    if (texName) {
+      d.style.background = `url(${tilePreviewURL(texName, e.color)})`;
+      d.style.backgroundSize = 'cover';
+      d.style.imageRendering = 'pixelated';
+    } else {
+      d.style.background = e.color;
+    }
+    d.title = e.tex ?? 'цвет';
     d.onclick = () => {
       ed.blockType = Number(t);
       buildPalette();
