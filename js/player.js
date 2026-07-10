@@ -155,7 +155,8 @@ export class Player {
 
     const res = moveAABB(this.map, this.pos, this.vel, dt, MOVE.half, MOVE.height);
     this.onGround = res.onGround;
-    if (this.pos.y < -20) { this.takeDamage(1000); return; } // выпал из мира
+    // kill-zone: упал в пропасть (страховочное дно карты лежит на y=-2)
+    if (this.pos.y < -1.5) { this.takeDamage(1000); return; }
 
     // --- подбор оружия ---
     for (const p of pickups) {
