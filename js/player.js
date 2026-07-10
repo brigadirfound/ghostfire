@@ -73,10 +73,10 @@ export class Player {
     const g = new THREE.Group();
     const skinMat = new THREE.MeshLambertMaterial({ color: this.skin.body.arms });
     const sleeveMat = new THREE.MeshLambertMaterial({ color: this.skin.body.torso });
-    const fist = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.16), skinMat);
-    fist.position.set(0, 0, 0.02);
-    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.12), sleeveMat);
-    sleeve.position.set(0, -0.02, 0.16);
+    const fist = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.22), skinMat);
+    fist.position.set(0, 0, 0.03);
+    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.16), sleeveMat);
+    sleeve.position.set(0, -0.03, 0.21);
     fist.castShadow = sleeve.castShadow = true;
     g.add(fist, sleeve);
     return g;

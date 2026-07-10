@@ -34,11 +34,13 @@ const JOBS = [
   {
     file: 'skybox.jpg',
     aspectRatio: '16:9',
+    imageSize: '4K',
     prompt: 'seamless equirectangular 360 panorama skybox, voxel cube city skyline at sunset, ' +
       'blocky minecraft-style buildings silhouettes on the horizon low near the bottom edge, ' +
       'huge warm gradient sky from deep orange at horizon to purple and dark blue at top, ' +
-      'a few blocky voxel clouds, soft sun glow on the left side, stylized game art, ' +
-      'clean simple shapes, no text, no watermark, horizon line exactly at the lower third',
+      'smooth clean gradient with no banding or noise, a few blocky voxel clouds, ' +
+      'soft sun glow on the left side, stylized game art, crisp clean shapes, ' +
+      'no text, no watermark, horizon line exactly at the lower third',
   },
   {
     file: 'menu_bg.jpg',
@@ -60,7 +62,7 @@ async function generate(job) {
       prompt: job.prompt,
       images: [],
       aspectRatio: job.aspectRatio,
-      imageSize: '2K',
+      imageSize: job.imageSize ?? '2K',
       optimizeChineseText: false,
       replyType: 'json',
     }),
