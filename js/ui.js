@@ -3,7 +3,10 @@
 import LZString from 'lz-string';
 import { t, setLang, getLang } from './i18n.js';
 import { synthBotForMap, botNames } from './botgen.js';
+import { mapPreviewURL } from './mappreview.js';
 import { CONFIG } from './config.js';
+
+const BUILTIN_MAPS = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
 
 const BUILTIN_MULTS = [1, 1.5, 2, 2.5, 3]; // множители награды по сложности
 
@@ -24,16 +27,22 @@ export class UI {
     this.a = actions;
     this.screens = ['menu', 'maps', 'ghosts', 'challenge', 'shop', 'settings', 'pause', 'round', 'match'];
     this.selectedMap = 'arena01';
-    this.builtinGhosts = [];   // [{name, wrapper}]
   }
 
-  async loadBuiltinGhosts() {
-    for (let i = 1; i <= 5; i++) {
-      try {
-        const res = await fetch(`ghosts/ghost${i}.json`);
-        if (res.ok) this.builtinGhosts.push(await res.json());
-      } catch { /* нет файла — пропускаем */ }
+  /** Боты — матрица карта×сложность: ghosts/{mapId}_d{1..5}.json, кеш по карте. */
+  async ghostsForMap(mapId) {
+    this._ghostCache ??= {};
+    if (!this._ghostCache[mapId]) {
+      const list = [];
+      for (let i = 1; i <= 5; i++) {
+        try {
+          const res = await fetch(`ghosts/${mapId}_d${i}.json`);
+          if (res.ok) list.push(await res.json());
+        } catch { /* нет файла — пропускаем */ }
+      }
+      this._ghostCache[mapId] = list;
     }
+    return this._ghostCache[mapId];
   }
 
   show(name) {
@@ -82,28 +91,32 @@ export class UI {
     s.innerHTML = '';
     s.append(el('h2', '', t('chooseMap')));
     const row = el('div', 'row');
-    for (const id of ['arena01', 'arena02']) {
-      const card = el('div', 'map-card' + (id === this.selectedMap ? ' selected' : ''));
-      card.append(el('div', 'map-name', t(`map_${id}`)), el('div', 'map-desc', t(`map_${id}_desc`)));
-      card.onclick = () => { this.selectedMap = id; this.buildGhosts(); };
-      row.append(card);
-    }
+    const addCard = (id, name, desc, mapData = null) => {
+      const card = el('div', 'map-card' + ((id === this.selectedMap ||
+        (id === 'custom' && this.selectedMap === '__custom')) ? ' selected' : ''));
+      const img = el('img', 'map-thumb');
+      mapPreviewURL(id === 'custom' ? '__custom' : id, mapData)
+        .then(url => { img.src = url; })
+        .catch(() => img.remove());
+      card.append(img, el('div', 'map-name', name), el('div', 'map-desc', desc));
+      card.onclick = () => { this.selectedMap = id === 'custom' ? '__custom' : id; this.buildGhosts(); };
+      return card;
+    };
+    for (const id of BUILTIN_MAPS) row.append(addCard(id, t(`map_${id}`), t(`map_${id}_desc`)));
     s.append(row);
     // карты из редактора
-    if (this.a.getCustomMap()) {
+    const cm = this.a.getCustomMap();
+    if (cm) {
       s.append(el('h2', '', t('myMaps')));
       const row2 = el('div', 'row');
-      const card = el('div', 'map-card' + (this.selectedMap === '__custom' ? ' selected' : ''));
-      card.append(el('div', 'map-name', t('map_custom')), el('div', 'map-desc', t('map_custom_desc')));
-      card.onclick = () => { this.selectedMap = '__custom'; this.buildGhosts(); };
-      row2.append(card);
+      row2.append(addCard('custom', t('map_custom'), t('map_custom_desc'), cm));
       s.append(row2);
     }
     s.append(this._btn(t('back'), 'small', () => this.show('menu')));
     this.show('maps');
   }
 
-  buildGhosts() {
+  async buildGhosts() {
     const s = $('screen-ghosts');
     s.innerHTML = '';
     s.append(el('h2', '', t('chooseGhost')));
@@ -142,7 +155,8 @@ export class UI {
       this.show('ghosts');
       return;
     }
-    this.builtinGhosts.forEach((g, i) => {
+    const builtin = await this.ghostsForMap(this.selectedMap);
+    builtin.forEach((g, i) => {
       const mult = BUILTIN_MULTS[i];
       const card = el('div', 'ghost-card');
       card.append(
@@ -185,18 +199,19 @@ export class UI {
   _quickPickValid() {
     const lp = this.a.settings.lastPick;
     if (!lp) return false;
-    if (lp.ghost.type === 'builtin') return !!this.builtinGhosts[lp.ghost.index];
+    if (lp.ghost.type === 'builtin') return lp.ghost.index >= 0 && lp.ghost.index < 5;
     if (lp.ghost.type === 'custombot') return !!this.a.getCustomMap();
     if (lp.ghost.type === 'mine') return !!this.a.getPlayerGhost();
     return false;
   }
 
-  quickMatch() {
+  async quickMatch() {
     const lp = this.a.settings.lastPick;
     if (!this._quickPickValid()) return;
     this.selectedMap = lp.map;
     if (lp.ghost.type === 'builtin') {
-      const g = this.builtinGhosts[lp.ghost.index];
+      const g = (await this.ghostsForMap(lp.map))[lp.ghost.index];
+      if (!g) return;
       this.a.startMatch(lp.map, { ...g, _builtin: true, _diffMult: BUILTIN_MULTS[lp.ghost.index] });
     } else if (lp.ghost.type === 'custombot') {
       const entry = synthBotForMap(this.a.getCustomMap(), lp.ghost.index);

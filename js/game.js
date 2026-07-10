@@ -122,8 +122,8 @@ const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true, 
 // ---------- туториал первого запуска ----------
 const TUT = { active: false, step: 0, timer: 0 };
 
-function startTutorial() {
-  const g = ui.builtinGhosts[0];
+async function startTutorial() {
+  const g = (await ui.ghostsForMap('arena01'))[0];
   if (!g) { ui.buildMaps(); return; } // призраки не загрузились — обычный флоу
   TUT.active = true;
   TUT.step = 1;
@@ -306,7 +306,9 @@ function resumeMatch() {
 // ---------- матч ----------
 async function startMatch(mapId, ghostEntry, keepScore = false) {
   Sound.init(); Sound.resume();
-  G.mapId = ghostEntry?.map ?? mapId;
+  // встроенные боты существуют на каждой карте — выбор игрока главнее;
+  // призраки-вызовы наоборот привязаны к своей карте (едет с призраком)
+  G.mapId = ghostEntry?._builtin ? mapId : (ghostEntry?.map ?? mapId);
   G.ghostEntry = ghostEntry;
   if (!keepScore) { G.score.me = 0; G.score.foe = 0; G.bestRound = null; G.matchShots = 0; G.matchHits = 0; }
 
@@ -556,7 +558,7 @@ async function boot() {
   // активный скин: слот из редактора / купленный в магазине / стандартный
   G.skin = await resolveActiveSkin();
   setLoadProgress(0.6);
-  await ui.loadBuiltinGhosts();
+  await ui.ghostsForMap('arena01'); // прогрев ботов стартовой карты (туториал)
   setLoadProgress(0.95);
 
   // принятие вызова: payload Яндекса или ?ghost= из URL
