@@ -11,10 +11,13 @@
   "ghostOpacity": 0.85,
   "weapons": {
     "pistol": { "body": "#444c55", "grip": "#2a2f36", "accent": "#ffaa33" },
+    "smg": { "body": "#4a5058", "grip": "#242a30", "accent": "#ffaa33" },
+    "ar": { "body": "#525a62", "grip": "#2a2f36", "accent": "#ffaa33" },
     "shotgun": { "body": "#8a4b2d", "grip": "#3a2a1a", "accent": "#dd3322" },
-    "railgun": { "body": "#2a3a4a", "grip": "#1a2028", "accent": "#33ddff" }
+    "sniper": { "body": "#3a4048", "grip": "#20242a", "accent": "#33ddff" },
+    "railgun": { "body": "#2a3a4a", "grip": "#1a2028", "accent": "#33ddff", "emissive": true }
   },
   "tracer": "#ffdd55",
   "railTracer": "#33ddff",
-  "_comment": "необязательный ключ models.<pistol|shotgun|railgun> — список воксельных частей {size,pos,color}, полностью заменяет встроенную 3D-модель пушки (задел под пользовательские скины)"
+  "_comment": "необязательный ключ models.<pistol|smg|ar|shotgun|sniper|railgun> — список воксельных частей {size,pos,color}, полностью заменяет 3D-модель пушки (задел под пользовательские скины); weapons.<key>.emissive — подсветка акцентного материала (используется на рейлгане)"
 }

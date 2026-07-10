@@ -81,7 +81,7 @@ function synthGhost(mapId, waypoints, d) {
 
     const yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.06;
     const pitch = (Math.random() - 0.5) * 0.1;
-    rec.frames.push({ x: pos.x, y, z: pos.z, yaw, pitch, flags: (weapon & 3) << 1 });
+    rec.frames.push({ x: pos.x, y, z: pos.z, yaw, pitch, flags: (weapon & 7) << 1 });
 
     fireT -= dt;
     if (fireT <= 0) {

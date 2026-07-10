@@ -8,7 +8,10 @@
 //   [10..13] uint32 shotCount
 //   [14..17] uint32 pickupCount
 //   далее frameCount × 21 байт:  float32 x, y, z, yaw, pitch; uint8 flags
-//         flags: bit0 — прыжок в этот тик; bits1-2 — id оружия (0 пистолет, 1 дробовик, 2 рейлган)
+//         flags: bit0 — прыжок в этот тик; bits1-3 — id оружия (0..5, см. js/weapons.js).
+//         Изначально было 2 бита (0 пистолет, 1 дробовик, 2 рейлган) — расширено до
+//         3 бит для новых слотов; бит3 в старых записях всегда 0, так что старые
+//         записи читаются новым декодером без изменений (полная совместимость)
 //   далее shotCount × 6 байт:    uint32 tick; uint8 weapon; uint8 hit (0 мимо, 1 тело, 2 голова)
 //   далее pickupCount × 5 байт:  uint32 tick; uint8 weapon
 
@@ -32,7 +35,7 @@ export class Recorder {
     const step = 1 / this.tickRate;
     while (this._accum >= step) {
       this._accum -= step;
-      let flags = (weapon & 3) << 1;
+      let flags = (weapon & 7) << 1;
       if (this._jumped) { flags |= 1; this._jumped = false; }
       this.frames.push({ x: pos.x, y: pos.y, z: pos.z, yaw, pitch, flags });
     }
@@ -137,7 +140,7 @@ export class Replay {
     out.z = a.z + (b.z - a.z) * k;
     out.yaw = lerpAngle(a.yaw, b.yaw, k);
     out.pitch = a.pitch + (b.pitch - a.pitch) * k;
-    out.weapon = (a.flags >> 1) & 3;
+    out.weapon = (a.flags >> 1) & 7;
     out.jumped = (a.flags & 1) === 1;
     out.tick = i0;
     return out;

@@ -92,7 +92,7 @@ export function synthBotForMap(mapData, diff) {
     }
 
     const yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.06;
-    rec.frames.push({ x: pos.x, y, z: pos.z, yaw, pitch: (Math.random() - 0.5) * 0.1, flags: (weapon & 3) << 1 });
+    rec.frames.push({ x: pos.x, y, z: pos.z, yaw, pitch: (Math.random() - 0.5) * 0.1, flags: (weapon & 7) << 1 });
 
     fireT -= dt;
     if (fireT <= 0) {

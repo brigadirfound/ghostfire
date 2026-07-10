@@ -13,8 +13,11 @@
         "ghostTint": "#ff2fd6", "ghostOpacity": 0.85,
         "weapons": {
           "pistol": { "body": "#2b2b45", "grip": "#1a1a2e", "accent": "#ff2fd6" },
+          "smg": { "body": "#2b2b45", "grip": "#1a1a2e", "accent": "#00ffd0" },
+          "ar": { "body": "#33334f", "grip": "#1a1a2e", "accent": "#ff2fd6" },
           "shotgun": { "body": "#2b2b45", "grip": "#1a1a2e", "accent": "#00ffd0" },
-          "railgun": { "body": "#1a1a2e", "grip": "#2b2b45", "accent": "#ff2fd6" }
+          "sniper": { "body": "#1a1a2e", "grip": "#2b2b45", "accent": "#00ffd0" },
+          "railgun": { "body": "#1a1a2e", "grip": "#2b2b45", "accent": "#ff2fd6", "emissive": true }
         },
         "tracer": "#ff2fd6", "railTracer": "#00ffd0"
       }
@@ -27,8 +30,11 @@
         "ghostTint": "#ffd75e", "ghostOpacity": 0.85,
         "weapons": {
           "pistol": { "body": "#b8860b", "grip": "#6b4e0a", "accent": "#fff3b0" },
+          "smg": { "body": "#a8790a", "grip": "#6b4e0a", "accent": "#fff3b0" },
+          "ar": { "body": "#c8940c", "grip": "#6b4e0a", "accent": "#fff3b0" },
           "shotgun": { "body": "#b8860b", "grip": "#6b4e0a", "accent": "#fff3b0" },
-          "railgun": { "body": "#8a6a1a", "grip": "#6b4e0a", "accent": "#ffd75e" }
+          "sniper": { "body": "#8a6a1a", "grip": "#6b4e0a", "accent": "#ffd75e" },
+          "railgun": { "body": "#8a6a1a", "grip": "#6b4e0a", "accent": "#ffd75e", "emissive": true }
         },
         "tracer": "#ffd75e", "railTracer": "#fff3b0"
       }
@@ -41,8 +47,11 @@
         "ghostTint": "#7ec850", "ghostOpacity": 0.85,
         "weapons": {
           "pistol": { "body": "#4a5240", "grip": "#2c3325", "accent": "#a2d060" },
+          "smg": { "body": "#454e38", "grip": "#2c3325", "accent": "#a2d060" },
+          "ar": { "body": "#525c42", "grip": "#3a2f1e", "accent": "#a2d060" },
           "shotgun": { "body": "#5a4a30", "grip": "#3a2f1e", "accent": "#a2d060" },
-          "railgun": { "body": "#33402a", "grip": "#242d1e", "accent": "#a2d060" }
+          "sniper": { "body": "#33402a", "grip": "#242d1e", "accent": "#a2d060" },
+          "railgun": { "body": "#33402a", "grip": "#242d1e", "accent": "#a2d060", "emissive": true }
         },
         "tracer": "#c8e860", "railTracer": "#a2d060"
       }
@@ -55,8 +64,11 @@
         "ghostTint": "#7a2fff", "ghostOpacity": 0.8,
         "weapons": {
           "pistol": { "body": "#191926", "grip": "#0b0b12", "accent": "#7a2fff" },
+          "smg": { "body": "#15151f", "grip": "#0b0b12", "accent": "#a05eff" },
+          "ar": { "body": "#1d1d2c", "grip": "#0b0b12", "accent": "#7a2fff" },
           "shotgun": { "body": "#191926", "grip": "#0b0b12", "accent": "#7a2fff" },
-          "railgun": { "body": "#0b0b12", "grip": "#191926", "accent": "#a05eff" }
+          "sniper": { "body": "#0b0b12", "grip": "#191926", "accent": "#a05eff" },
+          "railgun": { "body": "#0b0b12", "grip": "#191926", "accent": "#a05eff", "emissive": true }
         },
         "tracer": "#a05eff", "railTracer": "#7a2fff"
       }
@@ -69,8 +81,11 @@
         "ghostTint": "#ff3040", "ghostOpacity": 0.85,
         "weapons": {
           "pistol": { "body": "#601018", "grip": "#38080e", "accent": "#ff3040" },
+          "smg": { "body": "#561015", "grip": "#38080e", "accent": "#ffb020" },
+          "ar": { "body": "#6c141c", "grip": "#38080e", "accent": "#ff3040" },
           "shotgun": { "body": "#601018", "grip": "#38080e", "accent": "#ffb020" },
-          "railgun": { "body": "#480a12", "grip": "#38080e", "accent": "#ff3040" }
+          "sniper": { "body": "#480a12", "grip": "#38080e", "accent": "#ff3040" },
+          "railgun": { "body": "#480a12", "grip": "#38080e", "accent": "#ff3040", "emissive": true }
         },
         "tracer": "#ff5060", "railTracer": "#ff3040"
       }

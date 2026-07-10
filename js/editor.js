@@ -19,6 +19,9 @@ const DEFAULT_PALETTE = {
   8: { color: '#e8e8e8', tex: 'glass' },
 };
 
+// цвет маркера точки оружия в редакторе, по типу (совпадает с id в weapons.js)
+const WEAPON_MARKER_COLORS = { 1: '#dd3322', 2: '#33ddff', 3: '#ffcc33', 4: '#33dd77', 5: '#cc55ff' };
+
 const status = (msg, ok = true) => {
   const el = document.getElementById('status');
   el.textContent = msg;
@@ -154,7 +157,7 @@ function rebuild() {
   for (const w of ed.weapons) {
     const m = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, 0.3, 0.6),
-      new THREE.MeshLambertMaterial({ color: w.type === 1 ? '#dd3322' : '#33ddff' }));
+      new THREE.MeshLambertMaterial({ color: WEAPON_MARKER_COLORS[w.type] ?? '#dd3322' }));
     m.position.set(w.pos[0], w.pos[1] + 0.3, w.pos[2]);
     markers.add(m);
   }
@@ -243,9 +246,8 @@ function handleClick(e) {
       ed.spawns[i] = [cellOn.x + 0.5, cellOn.y, cellOn.z + 0.5, 0];
       break;
     }
-    case 'weapon1':
-    case 'weapon2': {
-      const type = ed.tool === 'weapon1' ? 1 : 2;
+    case 'weapon1': case 'weapon2': case 'weapon3': case 'weapon4': case 'weapon5': {
+      const type = Number(ed.tool.slice(6));
       // клик по существующей точке — удалить
       const idx = ed.weapons.findIndex(w =>
         Math.abs(w.pos[0] - (cellOn.x + 0.5)) < 0.6 && Math.abs(w.pos[2] - (cellOn.z + 0.5)) < 0.6);

@@ -15,9 +15,18 @@ const FIELDS = [
   { path: 'weapons.pistol.body', label: 'Корпус', panel: 'skin-pistol' },
   { path: 'weapons.pistol.grip', label: 'Рукоять', panel: 'skin-pistol' },
   { path: 'weapons.pistol.accent', label: 'Акцент', panel: 'skin-pistol' },
+  { path: 'weapons.smg.body', label: 'Корпус', panel: 'skin-smg' },
+  { path: 'weapons.smg.grip', label: 'Рукоять', panel: 'skin-smg' },
+  { path: 'weapons.smg.accent', label: 'Акцент', panel: 'skin-smg' },
+  { path: 'weapons.ar.body', label: 'Корпус', panel: 'skin-ar' },
+  { path: 'weapons.ar.grip', label: 'Рукоять', panel: 'skin-ar' },
+  { path: 'weapons.ar.accent', label: 'Акцент', panel: 'skin-ar' },
   { path: 'weapons.shotgun.body', label: 'Корпус', panel: 'skin-shotgun' },
   { path: 'weapons.shotgun.grip', label: 'Дерево', panel: 'skin-shotgun' },
   { path: 'weapons.shotgun.accent', label: 'Акцент', panel: 'skin-shotgun' },
+  { path: 'weapons.sniper.body', label: 'Корпус', panel: 'skin-sniper' },
+  { path: 'weapons.sniper.grip', label: 'Рукоять', panel: 'skin-sniper' },
+  { path: 'weapons.sniper.accent', label: 'Акцент', panel: 'skin-sniper' },
   { path: 'weapons.railgun.body', label: 'Корпус', panel: 'skin-railgun' },
   { path: 'weapons.railgun.grip', label: 'Рукоять', panel: 'skin-railgun' },
   { path: 'weapons.railgun.accent', label: 'Свечение', panel: 'skin-railgun' },
@@ -82,11 +91,12 @@ export function initSkinEditor(status) {
     part(0.16, 0.5, 0.16, b.arms, 0.38, 1.05, 0);
     part(0.22, 0.6, 0.22, b.legs, -0.16, 0.3, 0);
     part(0.22, 0.6, 0.22, b.legs, 0.16, 0.3, 0);
-    // пушки в ряд
-    [0, 1, 2].forEach(id => {
+    // пушки в два ряда по три
+    [0, 1, 2, 3, 4, 5].forEach(id => {
       const w = buildWeaponModel(id, skin);
-      w.scale.setScalar(1.15);
-      w.position.set(-1.5 + id * 1.5, 0.45, 1.2);
+      w.scale.setScalar(1.05);
+      const col = id % 3, row = Math.floor(id / 3);
+      w.position.set(-1.6 + col * 1.6, 0.45 - row * 0.55, 1.2 + row * 0.9);
       w.rotation.y = -0.5;
       preview.add(w);
     });
@@ -103,7 +113,7 @@ export function initSkinEditor(status) {
   }
 
   function buildForm() {
-    for (const p of ['skin-body', 'skin-pistol', 'skin-shotgun', 'skin-railgun', 'skin-fx'])
+    for (const p of ['skin-body', 'skin-pistol', 'skin-smg', 'skin-ar', 'skin-shotgun', 'skin-sniper', 'skin-railgun', 'skin-fx'])
       document.getElementById(p).innerHTML = '';
     for (const f of FIELDS) {
       const row = document.createElement('div');

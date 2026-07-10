@@ -1,103 +1,101 @@
-// Оружие: параметры, воксельные модельки (view/world), пикапы, трассеры, hitscan.
+// Оружие: параметры, GLTF-модели (view/world) с перекраской по скину, пикапы,
+// трассеры, hitscan.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { raycastVoxels } from './map.js';
 
-export const PISTOL = 0, SHOTGUN = 1, RAILGUN = 2;
+// ID стабильны: 0-2 существовали с самого начала (записи призраков и старые
+// UGC-карты ссылаются на них по числу) — новые слоты добавлены следом, 3 бита
+// в протоколе записи (js/replay.js) вмещают до 8 значений.
+export const PISTOL = 0, SHOTGUN = 1, RAILGUN = 2, SMG = 3, AR = 4, SNIPER = 5;
 
 export const WEAPONS = [
-  { id: PISTOL,  key: 'pistol',  damage: 12,  cooldown: 0.28, pellets: 1, spread: 0.008, range: 80, charge: 0,   recoil: 0.018 },
-  { id: SHOTGUN, key: 'shotgun', damage: 7,   cooldown: 0.85, pellets: 8, spread: 0.085, range: 32, charge: 0,   recoil: 0.05, falloff: true },
-  { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3,  pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.09 },
+  { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018 },
+  { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05, falloff: true },
+  { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.09 },
+  { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012 },
+  { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03 },
+  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.12 },
 ];
 
 // ---------- 3D-модели пушек ----------
 // Пушки — единственные "гладкие" 3D-объекты в игре (контраст с воксельным миром —
-// фишка стиля). Строятся кодом из примитивов, цвета — из скина.
-// UGC-задел: если в скине есть "models.<key>" (список воксельных частей
-// { size, pos, color }), он ПОЛНОСТЬЮ заменяет встроенную модель.
+// фишка стиля). Модели — Quaternius "Modular Sci-Fi Guns" (CC0), assets/weapons/*.gltf.
+// Материалы во всех моделях одинаковые: Black/Grey/White/Main — перекрашиваем их
+// в цвета скина (body/grip/accent), поэтому "несколько скинов" = просто разные
+// наборы цветов в skins/*.json, без новых ассетов.
+// UGC-задел сохранён: если в скине есть "models.<key>" (воксельные части
+// { size, pos, color }), она ПОЛНОСТЬЮ заменяет модель GLTF.
 
-const _mat = (color, { metal = 0.7, rough = 0.35, emissive = null } = {}) =>
-  new THREE.MeshStandardMaterial({
-    color, metalness: metal, roughness: rough,
-    emissive: emissive ?? '#000000',
-    emissiveIntensity: emissive ? 0.9 : 0,
+const MODEL_URL = (key) => `assets/weapons/${key}.gltf`;
+const _loader = new GLTFLoader();
+const _rawCache = new Map();      // key -> Promise<THREE.Group> (нетронутая геометрия)
+
+function loadRawModel(key) {
+  if (!_rawCache.has(key)) {
+    _rawCache.set(key, _loader.loadAsync(MODEL_URL(key)).then((gltf) => gltf.scene));
+  }
+  return _rawCache.get(key);
+}
+
+/** Клонирует геометрию модели и красит материалы Black/Grey/White/Main по скину. */
+function paintClone(raw, colors) {
+  const clone = raw.clone(true);
+  const paletteByName = {
+    Black: colors.grip ?? '#222222',
+    Grey: colors.body ?? '#888888',
+    White: colors.body ?? '#cccccc',
+    Main: colors.accent ?? '#ff8800',
+  };
+  clone.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    const srcMat = o.material;
+    const hex = paletteByName[srcMat?.name] ?? colors.body ?? '#888888';
+    o.material = new THREE.MeshStandardMaterial({
+      color: hex, metalness: 0.5, roughness: 0.45,
+      emissive: srcMat?.name === 'Main' && colors.emissive ? hex : '#000000',
+      emissiveIntensity: srcMat?.name === 'Main' && colors.emissive ? 0.7 : 0,
+    });
   });
-
-function _add(group, geo, material, x, y, z, rx = 0, ry = 0, rz = 0) {
-  const m = new THREE.Mesh(geo, material);
-  m.position.set(x, y, z);
-  m.rotation.set(rx, ry, rz);
-  m.castShadow = true;
-  group.add(m);
-  return m;
+  return clone;
 }
 
-const _box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-const _cyl = (r, len, seg = 12) => new THREE.CylinderGeometry(r, r, len, seg);
-const _torus = (r, tube) => new THREE.TorusGeometry(r, tube, 8, 16);
-const RX = Math.PI / 2; // цилиндр вдоль ствола (-Z)
-
-function buildPistol(c) {
+/** Воксельная замена из UGC-скина: список боксов { size, pos, color }. */
+function buildCustomModel(parts, colors) {
   const g = new THREE.Group();
-  const body = _mat(c.body), grip = _mat(c.grip, { metal: 0.2, rough: 0.7 }), acc = _mat(c.accent);
-  _add(g, _box(0.1, 0.11, 0.34), body, 0, 0.09, -0.12);           // затвор
-  _add(g, _cyl(0.032, 0.14), body, 0, 0.09, -0.34, RX);           // ствол
-  _add(g, _box(0.09, 0.07, 0.26), grip, 0, 0.01, -0.08);          // рамка
-  _add(g, _box(0.085, 0.2, 0.11), grip, 0, -0.1, 0.03, 0.22);     // рукоять
-  _add(g, _torus(0.045, 0.011), grip, 0, -0.035, -0.06, 0, RX);   // скоба крючка
-  _add(g, _box(0.035, 0.045, 0.05), acc, 0, 0.17, -0.24);         // мушка
-  _add(g, _box(0.06, 0.03, 0.06), acc, 0, 0.16, 0.02);            // целик
+  for (const p of parts) {
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(p.size[0], p.size[1], p.size[2]),
+      new THREE.MeshLambertMaterial({ color: colors[p.color] ?? p.color }));
+    m.position.set(p.pos[0], p.pos[1], p.pos[2]);
+    m.castShadow = true;
+    g.add(m);
+  }
   return g;
 }
 
-function buildShotgun(c) {
-  const g = new THREE.Group();
-  const body = _mat(c.body), wood = _mat(c.grip, { metal: 0.05, rough: 0.8 }), acc = _mat(c.accent);
-  _add(g, _cyl(0.042, 0.85), body, 0, 0.1, -0.33, RX);            // ствол
-  _add(g, _cyl(0.032, 0.68), body, 0, 0.02, -0.3, RX);            // трубчатый магазин
-  _add(g, _cyl(0.055, 0.2, 10), wood, 0, 0.02, -0.44, RX);        // цевьё-помпа
-  _add(g, _box(0.11, 0.15, 0.3), body, 0, 0.06, 0.02);            // ресивер
-  _add(g, _box(0.09, 0.14, 0.34), wood, 0, -0.03, 0.3, -0.18);    // приклад
-  _add(g, _torus(0.05, 0.014), acc, 0, 0.1, -0.74, 0, 0);         // дульное кольцо
-  _add(g, _box(0.03, 0.04, 0.04), acc, 0, 0.17, -0.7);            // мушка
-  return g;
-}
-
-function buildRailgun(c) {
-  const g = new THREE.Group();
-  const body = _mat(c.body), grip = _mat(c.grip, { metal: 0.2, rough: 0.7 });
-  const glow = _mat(c.accent, { metal: 0.1, rough: 0.3, emissive: c.accent });
-  _add(g, _box(0.13, 0.16, 0.8), body, 0, 0.03, -0.12);           // корпус
-  _add(g, _cyl(0.018, 1.05), body, -0.05, 0.13, -0.3, RX);        // рельса левая
-  _add(g, _cyl(0.018, 1.05), body, 0.05, 0.13, -0.3, RX);         // рельса правая
-  _add(g, _cyl(0.02, 0.9), glow, 0, 0.13, -0.28, RX);             // светящийся сердечник
-  for (const z of [-0.2, -0.42, -0.64]) _add(g, _torus(0.085, 0.02), glow, 0, 0.08, z); // катушки
-  _add(g, _cyl(0.055, 0.2), glow, 0, 0.16, 0.12, RX);             // конденсатор
-  _add(g, _box(0.09, 0.2, 0.11), grip, 0, -0.12, 0.08, 0.2);      // рукоять
-  _add(g, _box(0.08, 0.12, 0.22), grip, 0, -0.02, 0.32, -0.15);   // упор
-  return g;
-}
-
-const BUILDERS = { pistol: buildPistol, shotgun: buildShotgun, railgun: buildRailgun };
-
-/** Модель пушки: встроенная 3D или воксельная замена из скина (UGC). */
+/**
+ * Модель пушки. ВАЖНО: загрузка GLTF асинхронна — до готовности возвращается
+ * пустая THREE.Group, которая наполняется геометрией по промису (одна и та же
+ * ссылка на группу, можно сразу добавлять в сцену/камеру).
+ */
 export function buildWeaponModel(weaponId, skin) {
   const key = WEAPONS[weaponId].key;
   const colors = skin.weapons[key] ?? {};
   const custom = skin.models?.[key];
-  if (custom) {
-    const g = new THREE.Group();
-    for (const p of custom) {
-      const m = new THREE.Mesh(
-        new THREE.BoxGeometry(p.size[0], p.size[1], p.size[2]),
-        new THREE.MeshLambertMaterial({ color: colors[p.color] ?? p.color }));
-      m.position.set(p.pos[0], p.pos[1], p.pos[2]);
-      m.castShadow = true;
-      g.add(m);
-    }
-    return g;
-  }
-  return BUILDERS[key](colors);
+  if (custom) return buildCustomModel(custom, colors);
+
+  const holder = new THREE.Group();
+  loadRawModel(key).then((raw) => {
+    holder.add(paintClone(raw, colors));
+  }).catch((e) => console.warn(`[weapons] модель "${key}" не загрузилась`, e));
+  return holder;
+}
+
+/** Прогрев кеша моделей — вызывается на загрузке игры, чтобы первый подбор не лагал. */
+export function preloadWeaponModels() {
+  return Promise.all(WEAPONS.map((w) => loadRawModel(w.key).catch(() => null)));
 }
 
 /** Точки оружия на карте: моделька крутится и левитирует, респаун 10 с. */
