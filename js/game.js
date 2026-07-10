@@ -23,8 +23,16 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.BasicShadowMap; // жёсткие тени — воксельный стиль
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#7ec8e8');
-scene.fog = new THREE.Fog('#7ec8e8', 40, 90);
+scene.background = new THREE.Color('#7ec8e8'); // фолбэк, пока грузится скайбокс
+scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под закатное небо
+
+// скайбокс: воксельный город на закате (assets/skybox.jpg, генерация
+// tools/gen_skybox.mjs); при ошибке загрузки остаётся цветной фон
+new THREE.TextureLoader().load('assets/skybox.jpg', (tex) => {
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+});
 
 // процедурное окружение для металла 3D-пушек (PBR без внешних ассетов)
 import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
