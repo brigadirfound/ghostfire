@@ -54,6 +54,10 @@ export class Player {
       this.camera.add(m);
       return m;
     });
+    // кисть у грипа — только кулак+манжета, не вся рука, чтобы не перекрывать экран
+    this.hand = this._buildHand();
+    this.hand.position.set(0.24, -0.36, -0.32);
+    this.camera.add(this.hand);
     this._vmKick = 0;
     this._bobT = 0;
     this._setupKeyboard();
@@ -62,6 +66,20 @@ export class Player {
     // статистика раунда
     this.shotsFired = 0;
     this.shotsHit = 0;
+  }
+
+  /** Маленький кулак+манжета у грипа — воксельный, цвета кожи/рукава скина. */
+  _buildHand() {
+    const g = new THREE.Group();
+    const skinMat = new THREE.MeshLambertMaterial({ color: this.skin.body.arms });
+    const sleeveMat = new THREE.MeshLambertMaterial({ color: this.skin.body.torso });
+    const fist = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.16), skinMat);
+    fist.position.set(0, 0, 0.02);
+    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.12), sleeveMat);
+    sleeve.position.set(0, -0.02, 0.16);
+    fist.castShadow = sleeve.castShadow = true;
+    g.add(fist, sleeve);
+    return g;
   }
 
   _setupKeyboard() {
@@ -78,6 +96,7 @@ export class Player {
     window.removeEventListener('keyup', this._onUp);
     window.removeEventListener('blur', this._onBlur);
     this.viewModels.forEach(m => this.camera.remove(m));
+    this.camera.remove(this.hand);
   }
 
   spawn(spawnPoint) {
@@ -191,8 +210,13 @@ export class Player {
     this._vmKick = Math.max(0, this._vmKick - dt * 3);
     this._bobT += dt * (Math.hypot(this.vel.x, this.vel.z) > 1 && this.onGround ? 10 : 0);
     const vm = this.viewModels[this.weapon];
+    const bobY = Math.sin(this._bobT) * 0.012;
+    const bobX = Math.cos(this._bobT * 0.5) * 0.006;
     vm.position.z = -0.5 + this._vmKick;
-    vm.position.y = -0.3 + Math.sin(this._bobT) * 0.012;
+    vm.position.y = -0.3 + bobY;
+    this.hand.position.z = -0.32 + this._vmKick;
+    this.hand.position.y = -0.36 + bobY;
+    this.hand.position.x = 0.24 + bobX;
 
     // --- камера ---
     this.camera.position.set(this.pos.x, this.pos.y + MOVE.eye, this.pos.z);
