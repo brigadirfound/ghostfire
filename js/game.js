@@ -26,26 +26,20 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#2f2e5c'); // фолбэк, пока грузится скайбокс (цвет зенита текстуры)
 scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под закатное небо
 
-// скайбокс: воксельный город на закате (assets/skybox.jpg, генерация
-// tools/gen_skybox.mjs) на большом цилиндре вокруг игрока, а не как
-// scene.background — так и вращается вместе с обзором (иначе карта выглядит
-// "приклеенной" поверх статичной картинки), и без "tiny planet"-искажений
-// equirect-маппинга (картинка не честная сферическая панорама, а широкий
-// кадр города — заворачивать её на сферу/полюса нельзя, а вот на цилиндр,
-// у которого нет полюсов, можно). Один шов сзади, где правый край сходится
-// с левым — в аренном шутере игрок туда почти не смотрит.
-// Торцы ЗАКРЫТЫ (openEnded=false) сплошным цветом зенита/надира текстуры —
-// камера всегда на оси цилиндра, поэтому взгляд строго вверх/вниз идёт
-// вдоль оси и никогда не задевает боковую стенку с текстурой; открытый
-// торец там показывал бы голый scene.background чужеродным кругом-заглушкой.
-// Текстуру на торцы не натягиваем (круговой UV скукожил бы весь широкий
-// кадр города в кружок) — только сплошной цвет, отдельным материалом.
-const skyGeo = new THREE.CylinderGeometry(140, 140, 500, 48, 1, false);
+// скайбокс: цельная СФЕРА-купол вокруг игрока (следует за камерой в tick).
+// Исходник — широкий кадр города (не 360°-панорама), поэтому на сферу его
+// натягиваем не equirect-маппингом (это давало "tiny planet"), а собираем
+// честную equirect-развёртку на canvas сами:
+//   - картинка занимает пояс широт вокруг горизонта (город внизу пояса);
+//   - выше пояса до зенита — плавный градиент, продолжающий цвет верхнего
+//     края картинки, + звёзды (у полюса растянутые по X — компенсация
+//     сжатия долгот, на сфере становятся круглыми);
+//   - ниже пояса до надира — градиент из цвета нижнего края в темноту.
+// У сферы нет ни торцов, ни крышек — над головой и под ногами просто небо,
+// никаких кругов-заглушек. Один вертикальный шов сзади (края картинки).
+const skyGeo = new THREE.SphereGeometry(140, 48, 32);
 const skyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#2f2e5c' });
-const skyCapTop = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#2f2e5c' });
-const skyCapBottom = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#0c0910' });
-const skyMesh = new THREE.Mesh(skyGeo, [skyMat, skyCapTop, skyCapBottom]);
-skyMesh.position.y = 20;
+const skyMesh = new THREE.Mesh(skyGeo, skyMat);
 skyMesh.renderOrder = -1;
 scene.add(skyMesh);
 
@@ -58,76 +52,82 @@ function skyRng(seed) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-/** Звёзды поверх canvas: верхняя часть skybox.jpg — большое плоское пятно без
- * деталей (только небо, без построек), при взгляде почти вертикально вверх
- * это читается как "заглушка"/дыра. Добавляем немного шума кодом — дёшево,
- * не трогает сам JPEG. */
-function paintStars(ctx, w, h, heightFrac, count, seed) {
-  const rnd = skyRng(seed);
-  for (let i = 0; i < count; i++) {
-    const x = rnd() * w, y = rnd() * h * heightFrac;
-    const r = rnd() < 0.15 ? 1.6 : 0.8;
-    ctx.globalAlpha = 0.25 + rnd() * 0.5;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
 
-/** Средний цвет полосы canvas — для торцов подбираем цвет прямо из картинки
- * (зенит/надир), а не хардкодим под конкретный ассет: работает для любого
- * скайбокса, в т.ч. выбираемого за карту в редакторе. */
-function avgColor(ctx, w, y0, rows) {
+/** Средний цвет горизонтальной полосы картинки (для продолжения краёв
+ * градиентом) — подбирается из самой картинки, работает с любым скайбоксом. */
+function avgRow(ctx, w, y0, rows) {
   const data = ctx.getImageData(0, y0, w, rows).data;
   let r = 0, g = 0, b = 0;
   const n = data.length / 4;
   for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
-  return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
+  return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
 }
+const rgb = (c, mul = 1) =>
+  `rgb(${Math.round(c[0] * mul)},${Math.round(c[1] * mul)},${Math.round(c[2] * mul)})`;
 
-/** Текстура торца цилиндра — полярная развёртка краевой полосы самой
- * картинки: обод диска = крайний ряд пикселей стены (бесшовный стык по
- * цвету И по плотности звёзд/деталей), к центру — продолжение той же
- * полосы. Раньше торец был сплошной заливкой с горсткой синтетических
- * звёзд — на фоне плотного звёздного неба стены читался резким тёмным
- * кругом ("заглушкой"). */
-function capTextureFromImage(srcCtx, imgW, imgH, fromBottom) {
-  const S = 512;
-  const strip = Math.max(2, Math.floor(imgH * 0.25));
-  const src = srcCtx.getImageData(0, fromBottom ? imgH - strip : 0, imgW, strip).data;
+/** Собирает equirect-текстуру неба (2:1) из широкого кадра. */
+function buildSkyTexture(img) {
+  const W = 2048, H = 1024;
+  // край картинки для стыковки градиентов
+  const probe = document.createElement('canvas');
+  probe.width = img.width; probe.height = img.height;
+  const pctx = probe.getContext('2d');
+  pctx.drawImage(img, 0, 0);
+  const edge = Math.max(1, Math.round(img.height * 0.02));
+  const topColor = avgRow(pctx, img.width, 0, edge);
+  const botColor = avgRow(pctx, img.width, img.height - edge, edge);
+
   const c = document.createElement('canvas');
-  c.width = c.height = S;
+  c.width = W; c.height = H;
   const ctx = c.getContext('2d');
-  const out = ctx.createImageData(S, S);
-  const half = S / 2;
-  for (let py = 0; py < S; py++) {
-    for (let px = 0; px < S; px++) {
-      const dx = (px - half) / half, dy = (py - half) / half;
-      const r = Math.min(1, Math.hypot(dx, dy));
-      const u = Math.atan2(dy, dx) / (Math.PI * 2) + 0.5; // угол → колонка картинки
-      const sx = Math.min(imgW - 1, Math.floor(u * imgW));
-      // r=1 (обод) — крайний ряд стены, r=0 (центр) — глубина полосы
-      let sy = Math.floor((1 - r) * (strip - 1));
-      if (fromBottom) sy = strip - 1 - sy;
-      const si = (sy * imgW + sx) * 4;
-      const di = (py * S + px) * 4;
-      out.data[di] = src[si];
-      out.data[di + 1] = src[si + 1];
-      out.data[di + 2] = src[si + 2];
-      out.data[di + 3] = 255;
-    }
+  // пояс картинки: широты от +55° (верх кадра) до -35° (низ кадра);
+  // строка canvas = (90° - широта) / 180° * H
+  const rowTop = Math.round((90 - 55) / 180 * H);
+  const rowBot = Math.round((90 + 35) / 180 * H);
+  // зенит: тот же тон, что верх картинки, но темнее — небо "уходит в ночь"
+  const gTop = ctx.createLinearGradient(0, 0, 0, rowTop + 1);
+  gTop.addColorStop(0, rgb(topColor, 0.55));
+  gTop.addColorStop(1, rgb(topColor));
+  ctx.fillStyle = gTop;
+  ctx.fillRect(0, 0, W, rowTop + 1);
+  // надир: низ картинки уходит в темноту
+  const gBot = ctx.createLinearGradient(0, rowBot - 1, 0, H);
+  gBot.addColorStop(0, rgb(botColor));
+  gBot.addColorStop(1, rgb(botColor, 0.25));
+  ctx.fillStyle = gBot;
+  ctx.fillRect(0, rowBot - 1, W, H - rowBot + 1);
+  // сама картинка поясом вокруг горизонта
+  ctx.drawImage(img, 0, 0, img.width, img.height, 0, rowTop, W, rowBot - rowTop);
+  // мягкий стык градиента с верхом картинки
+  const fade = ctx.createLinearGradient(0, rowTop, 0, rowTop + 40);
+  fade.addColorStop(0, rgb(topColor));
+  fade.addColorStop(1, `rgba(${topColor[0]},${topColor[1]},${topColor[2]},0)`);
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, rowTop, W, 40);
+  // звёзды от ~72° широты вниз до верхней части пояса; ellipse с растяжением
+  // по X компенсирует сжатие долгот — на сфере звёзды круглые. Выше 72° НЕ
+  // рисуем: у полюса любые точки сходятся в радиальный "фейерверк", пусть
+  // там будет чистый градиент
+  const rnd = skyRng(1337);
+  const yMin = Math.round(H * 0.10); // широта ~72°
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 400; i++) {
+    const y = yMin + rnd() * (rowTop * 1.25 - yMin);
+    const lat = (0.5 - y / H) * Math.PI;
+    const stretch = 1 / Math.max(0.3, Math.cos(lat));
+    const r = rnd() < 0.15 ? 1.7 : 0.9;
+    ctx.globalAlpha = 0.3 + rnd() * 0.5;
+    ctx.beginPath();
+    ctx.ellipse(rnd() * W, y, r * stretch, r, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.putImageData(out, 0, 0);
+  ctx.globalAlpha = 1;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+  return { tex, zenith: rgb(topColor, 0.55) };
 }
 
-/** Грузит скайбокс по URL: стена цилиндра — сама картинка + звёзды сверху,
- * торцы — полярная развёртка её краевых полос (см. capTextureFromImage).
- * Кешируем по URL — за карту одна и та же ссылка не перегружается на
- * реванш/повтор. */
+/** Грузит скайбокс по URL (кеш по URL — реванш/повтор не перегружает). */
 let currentSkyboxUrl = null;
 function loadSkybox(url) {
   if (url === currentSkyboxUrl) return;
@@ -135,28 +135,11 @@ function loadSkybox(url) {
   const img = new Image();
   img.onload = () => {
     if (url !== currentSkyboxUrl) return; // пока грузилась — выбрали другую карту
-    const c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const edge = Math.max(1, Math.round(c.height * 0.02));
-    const zenith = avgColor(ctx, c.width, 0, edge);
-    ctx.fillStyle = '#ffffff';
-    paintStars(ctx, c.width, c.height, 0.55, 500, 1337);
-    // торцы строим ПОСЛЕ paintStars — обод диска включает те же звёзды,
-    // что и примыкающий край стены
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    const { tex, zenith } = buildSkyTexture(img);
     skyMat.map = tex;
     skyMat.color.set('#ffffff');
     skyMat.needsUpdate = true;
-    skyCapTop.map = capTextureFromImage(ctx, c.width, c.height, false);
-    skyCapTop.color.set('#ffffff');
-    skyCapTop.needsUpdate = true;
-    skyCapBottom.map = capTextureFromImage(ctx, c.width, c.height, true);
-    skyCapBottom.color.set('#ffffff');
-    skyCapBottom.needsUpdate = true;
-    scene.background = new THREE.Color(zenith);
+    scene.background = new THREE.Color(zenith); // фолбэк до загрузки следующего
   };
   img.src = url;
 }
