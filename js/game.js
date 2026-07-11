@@ -23,12 +23,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.BasicShadowMap; // жёсткие тени — воксельный стиль
 
 const scene = new THREE.Scene();
-// тёмно-синий зенит текстуры skybox.jpg — не просто фолбэк на время загрузки:
-// цилиндр открыт сверху/снизу (openEnded), и при взгляде почти вертикально
-// вверх (например, стоя на крыше) виден именно этот цвет сквозь дыру —
-// раньше тут был голубой '#7ec8e8', не совпадающий с текстурой ни разу
-// (видно как чужеродный бирюзовый круг посреди неба)
-scene.background = new THREE.Color('#2f2e5c');
+scene.background = new THREE.Color('#2f2e5c'); // фолбэк, пока грузится скайбокс (цвет зенита текстуры)
 scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под закатное небо
 
 // скайбокс: воксельный город на закате (assets/skybox.jpg, генерация
@@ -39,9 +34,17 @@ scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под
 // кадр города — заворачивать её на сферу/полюса нельзя, а вот на цилиндр,
 // у которого нет полюсов, можно). Один шов сзади, где правый край сходится
 // с левым — в аренном шутере игрок туда почти не смотрит.
-const skyGeo = new THREE.CylinderGeometry(140, 140, 500, 48, 1, true);
+// Торцы ЗАКРЫТЫ (openEnded=false) сплошным цветом зенита/надира текстуры —
+// камера всегда на оси цилиндра, поэтому взгляд строго вверх/вниз идёт
+// вдоль оси и никогда не задевает боковую стенку с текстурой; открытый
+// торец там показывал бы голый scene.background чужеродным кругом-заглушкой.
+// Текстуру на торцы не натягиваем (круговой UV скукожил бы весь широкий
+// кадр города в кружок) — только сплошной цвет, отдельным материалом.
+const skyGeo = new THREE.CylinderGeometry(140, 140, 500, 48, 1, false);
 const skyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#2f2e5c' });
-const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+const skyCapTop = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#2f2e5c' });
+const skyCapBottom = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#0c0910' });
+const skyMesh = new THREE.Mesh(skyGeo, [skyMat, skyCapTop, skyCapBottom]);
 skyMesh.position.y = 20;
 skyMesh.renderOrder = -1;
 scene.add(skyMesh);
