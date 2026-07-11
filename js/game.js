@@ -75,21 +75,16 @@ function paintStars(ctx, w, h, heightFrac, count, seed) {
   ctx.globalAlpha = 1;
 }
 
-const skyImg = new Image();
-skyImg.onload = () => {
-  const c = document.createElement('canvas');
-  c.width = skyImg.width; c.height = skyImg.height;
-  const ctx = c.getContext('2d');
-  ctx.drawImage(skyImg, 0, 0);
-  ctx.fillStyle = '#ffffff';
-  paintStars(ctx, c.width, c.height, 0.55, 500, 1337);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  skyMat.map = tex;
-  skyMat.color.set('#ffffff');
-  skyMat.needsUpdate = true;
-};
-skyImg.src = 'assets/skybox.jpg';
+/** Средний цвет полосы canvas — для торцов подбираем цвет прямо из картинки
+ * (зенит/надир), а не хардкодим под конкретный ассет: работает для любого
+ * скайбокса, в т.ч. выбираемого за карту в редакторе. */
+function avgColor(ctx, w, y0, rows) {
+  const data = ctx.getImageData(0, y0, w, rows).data;
+  let r = 0, g = 0, b = 0;
+  const n = data.length / 4;
+  for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; }
+  return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
+}
 
 // Торцы цилиндра — тоже не голая заливка: та же звёздная россыпь на маленьком
 // canvas, чтобы взгляд строго по оси (вверх/вниз) не упирался в идеально
@@ -106,12 +101,43 @@ function capTexture(bgColor, seed) {
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
-skyCapTop.map = capTexture('#2f2e5c', 42);
-skyCapTop.color.set('#ffffff');
-skyCapTop.needsUpdate = true;
-skyCapBottom.map = capTexture('#0c0910', 99);
-skyCapBottom.color.set('#ffffff');
-skyCapBottom.needsUpdate = true;
+
+/** Грузит скайбокс по URL: стена цилиндра — сама картинка + звёзды сверху,
+ * торцы — сплошная заливка, подобранная из зенита/надира той же картинки
+ * (плюс те же звёзды). Кешируем по URL — за карту одна и та же ссылка не
+ * перегружается на реванш/повтор. */
+let currentSkyboxUrl = null;
+function loadSkybox(url) {
+  if (url === currentSkyboxUrl) return;
+  currentSkyboxUrl = url;
+  const img = new Image();
+  img.onload = () => {
+    if (url !== currentSkyboxUrl) return; // пока грузилась — выбрали другую карту
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const edge = Math.max(1, Math.round(c.height * 0.02));
+    const zenith = avgColor(ctx, c.width, 0, edge);
+    const nadir = avgColor(ctx, c.width, c.height - edge, edge);
+    ctx.fillStyle = '#ffffff';
+    paintStars(ctx, c.width, c.height, 0.55, 500, 1337);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    skyMat.map = tex;
+    skyMat.color.set('#ffffff');
+    skyMat.needsUpdate = true;
+    skyCapTop.map = capTexture(zenith, 42);
+    skyCapTop.color.set('#ffffff');
+    skyCapTop.needsUpdate = true;
+    skyCapBottom.map = capTexture(nadir, 99);
+    skyCapBottom.color.set('#ffffff');
+    skyCapBottom.needsUpdate = true;
+    scene.background = new THREE.Color(zenith);
+  };
+  img.src = url;
+}
+loadSkybox('assets/skybox.jpg');
 
 // процедурное окружение для металла 3D-пушек (PBR без внешних ассетов)
 import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
@@ -422,6 +448,7 @@ async function startMatch(mapId, ghostEntry, keepScore = false) {
   }
   G.mapGroup = G.map.mesh;
   scene.add(G.mapGroup);
+  loadSkybox(G.map.data.skybox ?? 'assets/skybox.jpg');
 
   // солнце в центр карты
   const cx = 14, cz = 14;
