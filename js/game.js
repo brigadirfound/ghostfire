@@ -48,12 +48,70 @@ const skyMesh = new THREE.Mesh(skyGeo, [skyMat, skyCapTop, skyCapBottom]);
 skyMesh.position.y = 20;
 skyMesh.renderOrder = -1;
 scene.add(skyMesh);
-new THREE.TextureLoader().load('assets/skybox.jpg', (tex) => {
+
+function skyRng(seed) {
+  let a = seed | 0;
+  return () => {
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+/** Звёзды поверх canvas: верхняя часть skybox.jpg — большое плоское пятно без
+ * деталей (только небо, без построек), при взгляде почти вертикально вверх
+ * это читается как "заглушка"/дыра. Добавляем немного шума кодом — дёшево,
+ * не трогает сам JPEG. */
+function paintStars(ctx, w, h, heightFrac, count, seed) {
+  const rnd = skyRng(seed);
+  for (let i = 0; i < count; i++) {
+    const x = rnd() * w, y = rnd() * h * heightFrac;
+    const r = rnd() < 0.15 ? 1.6 : 0.8;
+    ctx.globalAlpha = 0.25 + rnd() * 0.5;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+const skyImg = new Image();
+skyImg.onload = () => {
+  const c = document.createElement('canvas');
+  c.width = skyImg.width; c.height = skyImg.height;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(skyImg, 0, 0);
+  ctx.fillStyle = '#ffffff';
+  paintStars(ctx, c.width, c.height, 0.55, 500, 1337);
+  const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   skyMat.map = tex;
   skyMat.color.set('#ffffff');
   skyMat.needsUpdate = true;
-});
+};
+skyImg.src = 'assets/skybox.jpg';
+
+// Торцы цилиндра — тоже не голая заливка: та же звёздная россыпь на маленьком
+// canvas, чтобы взгляд строго по оси (вверх/вниз) не упирался в идеально
+// плоский круг.
+function capTexture(bgColor, seed) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillStyle = '#ffffff';
+  paintStars(ctx, 128, 128, 1, 40, seed);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+skyCapTop.map = capTexture('#2f2e5c', 42);
+skyCapTop.color.set('#ffffff');
+skyCapTop.needsUpdate = true;
+skyCapBottom.map = capTexture('#0c0910', 99);
+skyCapBottom.color.set('#ffffff');
+skyCapBottom.needsUpdate = true;
 
 // процедурное окружение для металла 3D-пушек (PBR без внешних ассетов)
 import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
@@ -666,7 +724,12 @@ function tick(dt) {
     for (const p of G.pickups) p.update(dt);
     G.tracers?.update(dt);
     G.gibs?.update(dt);
-    skyMesh.position.x = camera.position.x; // скайбокс всегда центрирован на игроке
+    // скайбокс всегда центрирован на игроке по всем 3 осям — раньше по Y был
+    // фиксирован (y=20), и на высоких точках карт (башни) игрок физически
+    // приближался к закрытому торцу цилиндра, тот застилал полнеба огромным
+    // кругом; теперь торец всегда на постоянном удалении (±250) от камеры
+    skyMesh.position.x = camera.position.x;
+    skyMesh.position.y = camera.position.y;
     skyMesh.position.z = camera.position.z;
     renderer.render(scene, camera);
   }
