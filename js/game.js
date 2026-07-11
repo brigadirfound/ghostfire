@@ -23,7 +23,12 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.BasicShadowMap; // жёсткие тени — воксельный стиль
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#7ec8e8'); // фолбэк, пока грузится скайбокс
+// тёмно-синий зенит текстуры skybox.jpg — не просто фолбэк на время загрузки:
+// цилиндр открыт сверху/снизу (openEnded), и при взгляде почти вертикально
+// вверх (например, стоя на крыше) виден именно этот цвет сквозь дыру —
+// раньше тут был голубой '#7ec8e8', не совпадающий с текстурой ни разу
+// (видно как чужеродный бирюзовый круг посреди неба)
+scene.background = new THREE.Color('#2f2e5c');
 scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под закатное небо
 
 // скайбокс: воксельный город на закате (assets/skybox.jpg, генерация
@@ -35,7 +40,7 @@ scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под
 // у которого нет полюсов, можно). Один шов сзади, где правый край сходится
 // с левым — в аренном шутере игрок туда почти не смотрит.
 const skyGeo = new THREE.CylinderGeometry(140, 140, 500, 48, 1, true);
-const skyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#7ec8e8' });
+const skyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#2f2e5c' });
 const skyMesh = new THREE.Mesh(skyGeo, skyMat);
 skyMesh.position.y = 20;
 skyMesh.renderOrder = -1;
@@ -133,6 +138,8 @@ const G = {
   bestRound: null,     // { durationSec, data } — быстрейший выигранный раунд
   matchShots: 0,
   matchHits: 0,
+  matchHeadshots: 0,
+  matchBodyshots: 0,
   countdownT: 0,
   roundEndT: 0,
   playerGhost: null,   // сохранённая обёртка призрака игрока
@@ -331,7 +338,10 @@ async function startMatch(mapId, ghostEntry, keepScore = false) {
   // призраки-вызовы наоборот привязаны к своей карте (едет с призраком)
   G.mapId = ghostEntry?._builtin ? mapId : (ghostEntry?.map ?? mapId);
   G.ghostEntry = ghostEntry;
-  if (!keepScore) { G.score.me = 0; G.score.foe = 0; G.bestRound = null; G.matchShots = 0; G.matchHits = 0; }
+  if (!keepScore) {
+    G.score.me = 0; G.score.foe = 0; G.bestRound = null;
+    G.matchShots = 0; G.matchHits = 0; G.matchHeadshots = 0; G.matchBodyshots = 0;
+  }
 
   // очистка предыдущего матча
   if (G.mapGroup) { scene.remove(G.mapGroup); }
@@ -392,6 +402,7 @@ function startRound() {
   ui.setHP(100);
   ui.setWeapon(WEAPONS[0].key);
   ui.setScore(G.score.me, G.score.foe);
+  ui.banner(null);
   G.state = 'countdown';
   G.countdownT = 3;
   ui.countdown(3);
@@ -427,9 +438,13 @@ function playerShoots(weaponId, origin, dir) {
   G.matchShots++;
   if (res.hits > 0) {
     G.matchHits++;
+    if (res.headshots > 0) G.matchHeadshots++; else G.matchBodyshots++;
     ui.hitmarker();
     if (res.headshots > 0) Sound.headshot(); else Sound.hit();
-    if (!G.ghost.alive) onGhostDied();
+    if (!G.ghost.alive) {
+      G._lastKill = { weaponId, headshot: res.headshots > 0 };
+      onGhostDied();
+    }
     return res.headshots > 0 ? 2 : 1;
   }
   return 0;
@@ -447,7 +462,10 @@ function ghostShoots(weaponId, origin, dir) {
     new THREE.Vector3(0.7, 1.4, 0.7));
   const target = {
     head: _pHead, body: _pBody,
-    onHit: (part, dmg) => { p.takeDamage(dmg); ui.setHP(p.hp); },
+    onHit: (part, dmg) => {
+      p.takeDamage(dmg); ui.setHP(p.hp);
+      if (!p.alive) G._lastKill = { weaponId, headshot: part === 'head' };
+    },
   };
   const res = fireHitscan(G.map, origin, dir, weaponId, p.alive ? [target] : []);
   const color = weaponId === RAILGUN ? G.skin.railTracer : G.skin.tracer;
@@ -483,6 +501,12 @@ function endRound(playerWon) {
   G._roundPlayerWon = playerWon;
   if (playerWon) Sound.winRound(); else Sound.loseRound();
   ui.setScore(G.score.me, G.score.foe);
+  if (G._lastKill) {
+    const weapon = t(WEAPONS[G._lastKill.weaponId].key);
+    const zone = t(G._lastKill.headshot ? 'zoneHead' : 'zoneBody');
+    ui.banner(t(playerWon ? 'killfeedWin' : 'killfeedLose', weapon, zone));
+    G._lastKill = null;
+  }
 }
 
 function afterRoundPause() {
@@ -520,7 +544,8 @@ async function endMatch() {
   G.lastReward = computeMatchReward(won, G.score.foe, G.ghostEntry, wallet);
   applyMatchReward(wallet, G.lastReward, won);
   await Platform.saveWallet(wallet);
-  ui.showMatchScreen(G.score.me, G.score.foe, acc, won, G.ghostEntry, G.lastReward);
+  ui.showMatchScreen(G.score.me, G.score.foe, acc, won, G.ghostEntry, G.lastReward,
+    { headshots: G.matchHeadshots, bodyshots: G.matchBodyshots });
   Platform.showInterstitialAd('match_end'); // кулдаун 3 мин внутри Platform
 }
 

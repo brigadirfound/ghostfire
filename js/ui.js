@@ -374,7 +374,7 @@ export class UI {
     this.show('round');
   }
 
-  showMatchScreen(playerScore, ghostScore, accuracy, won, ghostEntry, reward = null) {
+  showMatchScreen(playerScore, ghostScore, accuracy, won, ghostEntry, reward = null, hitStats = null) {
     const s = $('screen-match');
     s.innerHTML = '';
     s.append(
@@ -382,6 +382,10 @@ export class UI {
       el('div', 'bigscore', `<span class="me">${playerScore}</span> : <span class="foe">${ghostScore}</span>`),
       el('div', '', `${t('accuracy')}: ${Math.round(accuracy * 100)}%`),
     );
+    if (hitStats && (hitStats.headshots + hitStats.bodyshots) > 0) {
+      const total = hitStats.headshots + hitStats.bodyshots;
+      s.append(el('div', '', `${t('headshots')}: ${hitStats.headshots} (${Math.round(hitStats.headshots / total * 100)}%)`));
+    }
     // разбивка награды за матч
     if (reward) {
       const box = el('div', 'reward-box');

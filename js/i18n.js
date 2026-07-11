@@ -96,6 +96,11 @@ export const STRINGS = {
     notEnoughCoins: 'Не хватает госткоинов',
     skinDefault: 'Стандарт',
     yan: 'Ян',
+    killfeedWin: (weapon, zone) => `Фраг · ${weapon} · ${zone}`,
+    killfeedLose: (weapon, zone) => `Тебя убили · ${weapon} · ${zone}`,
+    zoneHead: 'ГОЛОВА',
+    zoneBody: 'тело',
+    headshots: 'Хедшоты',
   },
   en: {
     play: 'Play',
@@ -193,6 +198,11 @@ export const STRINGS = {
     notEnoughCoins: 'Not enough GhostCoins',
     skinDefault: 'Default',
     yan: 'Yan',
+    killfeedWin: (weapon, zone) => `Kill · ${weapon} · ${zone}`,
+    killfeedLose: (weapon, zone) => `You were killed · ${weapon} · ${zone}`,
+    zoneHead: 'HEADSHOT',
+    zoneBody: 'body',
+    headshots: 'Headshots',
   },
 };
 
