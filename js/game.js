@@ -86,26 +86,48 @@ function avgColor(ctx, w, y0, rows) {
   return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
 }
 
-// Торцы цилиндра — тоже не голая заливка: та же звёздная россыпь на маленьком
-// canvas, чтобы взгляд строго по оси (вверх/вниз) не упирался в идеально
-// плоский круг.
-function capTexture(bgColor, seed) {
+/** Текстура торца цилиндра — полярная развёртка краевой полосы самой
+ * картинки: обод диска = крайний ряд пикселей стены (бесшовный стык по
+ * цвету И по плотности звёзд/деталей), к центру — продолжение той же
+ * полосы. Раньше торец был сплошной заливкой с горсткой синтетических
+ * звёзд — на фоне плотного звёздного неба стены читался резким тёмным
+ * кругом ("заглушкой"). */
+function capTextureFromImage(srcCtx, imgW, imgH, fromBottom) {
+  const S = 512;
+  const strip = Math.max(2, Math.floor(imgH * 0.25));
+  const src = srcCtx.getImageData(0, fromBottom ? imgH - strip : 0, imgW, strip).data;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = S;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, 128, 128);
-  ctx.fillStyle = '#ffffff';
-  paintStars(ctx, 128, 128, 1, 40, seed);
+  const out = ctx.createImageData(S, S);
+  const half = S / 2;
+  for (let py = 0; py < S; py++) {
+    for (let px = 0; px < S; px++) {
+      const dx = (px - half) / half, dy = (py - half) / half;
+      const r = Math.min(1, Math.hypot(dx, dy));
+      const u = Math.atan2(dy, dx) / (Math.PI * 2) + 0.5; // угол → колонка картинки
+      const sx = Math.min(imgW - 1, Math.floor(u * imgW));
+      // r=1 (обод) — крайний ряд стены, r=0 (центр) — глубина полосы
+      let sy = Math.floor((1 - r) * (strip - 1));
+      if (fromBottom) sy = strip - 1 - sy;
+      const si = (sy * imgW + sx) * 4;
+      const di = (py * S + px) * 4;
+      out.data[di] = src[si];
+      out.data[di + 1] = src[si + 1];
+      out.data[di + 2] = src[si + 2];
+      out.data[di + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
 /** Грузит скайбокс по URL: стена цилиндра — сама картинка + звёзды сверху,
- * торцы — сплошная заливка, подобранная из зенита/надира той же картинки
- * (плюс те же звёзды). Кешируем по URL — за карту одна и та же ссылка не
- * перегружается на реванш/повтор. */
+ * торцы — полярная развёртка её краевых полос (см. capTextureFromImage).
+ * Кешируем по URL — за карту одна и та же ссылка не перегружается на
+ * реванш/повтор. */
 let currentSkyboxUrl = null;
 function loadSkybox(url) {
   if (url === currentSkyboxUrl) return;
@@ -119,18 +141,19 @@ function loadSkybox(url) {
     ctx.drawImage(img, 0, 0);
     const edge = Math.max(1, Math.round(c.height * 0.02));
     const zenith = avgColor(ctx, c.width, 0, edge);
-    const nadir = avgColor(ctx, c.width, c.height - edge, edge);
     ctx.fillStyle = '#ffffff';
     paintStars(ctx, c.width, c.height, 0.55, 500, 1337);
+    // торцы строим ПОСЛЕ paintStars — обод диска включает те же звёзды,
+    // что и примыкающий край стены
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     skyMat.map = tex;
     skyMat.color.set('#ffffff');
     skyMat.needsUpdate = true;
-    skyCapTop.map = capTexture(zenith, 42);
+    skyCapTop.map = capTextureFromImage(ctx, c.width, c.height, false);
     skyCapTop.color.set('#ffffff');
     skyCapTop.needsUpdate = true;
-    skyCapBottom.map = capTexture(nadir, 99);
+    skyCapBottom.map = capTextureFromImage(ctx, c.width, c.height, true);
     skyCapBottom.color.set('#ffffff');
     skyCapBottom.needsUpdate = true;
     scene.background = new THREE.Color(zenith);
