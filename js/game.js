@@ -27,16 +27,24 @@ scene.background = new THREE.Color('#7ec8e8'); // фолбэк, пока гру�
 scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под закатное небо
 
 // скайбокс: воксельный город на закате (assets/skybox.jpg, генерация
-// tools/gen_skybox.mjs); при ошибке загрузки остаётся цветной фон
-// ВАЖНО: без EquirectangularReflectionMapping — картинка нарисована как
-// широкий кадр города, а не честная сферическая 360° проекция; equirect-режим
-// сэмплирует её по направлению взгляда и на полюсах/спереди-сзади схлопывает
-// в одну точку ("tiny planet"). Обычная плоская текстура фона (дефолтный
-// mapping) рендерится как статичный задник в экранных координатах — без
-// искажений, город просто не поворачивается вслед за камерой.
+// tools/gen_skybox.mjs) на большом цилиндре вокруг игрока, а не как
+// scene.background — так и вращается вместе с обзором (иначе карта выглядит
+// "приклеенной" поверх статичной картинки), и без "tiny planet"-искажений
+// equirect-маппинга (картинка не честная сферическая панорама, а широкий
+// кадр города — заворачивать её на сферу/полюса нельзя, а вот на цилиндр,
+// у которого нет полюсов, можно). Один шов сзади, где правый край сходится
+// с левым — в аренном шутере игрок туда почти не смотрит.
+const skyGeo = new THREE.CylinderGeometry(140, 140, 500, 48, 1, true);
+const skyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, color: '#7ec8e8' });
+const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+skyMesh.position.y = 20;
+skyMesh.renderOrder = -1;
+scene.add(skyMesh);
 new THREE.TextureLoader().load('assets/skybox.jpg', (tex) => {
   tex.colorSpace = THREE.SRGBColorSpace;
-  scene.background = tex;
+  skyMat.map = tex;
+  skyMat.color.set('#ffffff');
+  skyMat.needsUpdate = true;
 });
 
 // процедурное окружение для металла 3D-пушек (PBR без внешних ассетов)
@@ -630,6 +638,8 @@ function tick(dt) {
     for (const p of G.pickups) p.update(dt);
     G.tracers?.update(dt);
     G.gibs?.update(dt);
+    skyMesh.position.x = camera.position.x; // скайбокс всегда центрирован на игроке
+    skyMesh.position.z = camera.position.z;
     renderer.render(scene, camera);
   }
 }
