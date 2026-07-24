@@ -13,7 +13,8 @@
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
-    touch-action: none; overscroll-behavior: none; }
+    touch-action: none; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+  input, textarea, select, [contenteditable="true"] { user-select: text; -webkit-user-select: text; touch-action: auto; }
   #game-canvas { position: fixed; inset: 0; display: block; touch-action: none; }
   #mobile-ui, #stick-zone, #look-zone, #hud { touch-action: none; }
 
@@ -127,6 +128,7 @@
   <div id="preloader-bar"><div id="preloader-fill"></div></div>
 </div>
 <canvas id="game-canvas"></canvas>
+<script>function isTextField(t){return t instanceof Element&&t.closest('input,textarea,select,[contenteditable="true"]')}document.addEventListener('contextmenu',e=>{if(!isTextField(e.target))e.preventDefault()});document.addEventListener('selectstart',e=>{if(!isTextField(e.target))e.preventDefault()})</script>
 
 <!-- HUD -->
 <div id="hud" class="hidden">

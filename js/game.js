@@ -701,13 +701,13 @@ async function boot() {
   await ui.ghostsForMap('arena01'); // прогрев ботов стартовой карты (туториал)
   setLoadProgress(0.95);
 
-  // принятие вызова: payload Яндекса или ?ghost= из URL
+  // принятие вызова: payload платформы или ?ghost= из URL
   const launchCode = Platform.getLaunchPayload();
   const launchEntry = launchCode ? decodeShareCode(launchCode) : null;
   if (launchEntry) ui.buildChallenge(launchCode);
   else ui.buildMenu();
 
-  // прячем прелоадер, и только затем сигналим Яндексу о готовности
+  // прячем прелоадер, и только затем сигналим платформе о готовности
   setLoadProgress(1);
   document.getElementById('preloader')?.classList.add('done');
   Platform.gameReady();

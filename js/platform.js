@@ -1,5 +1,5 @@
 // Обёртка платформы. Все обращения игры к SDK/рекламе/сохранениям — ТОЛЬКО отсюда.
-// Автоопределение окружения: на Яндекс Играх подключается настоящий SDK,
+// Автоопределение окружения: на платформе подключается настоящий SDK,
 // на localhost/GitHub Pages — localStorage-заглушки. Игра этого не замечает.
 
 import { CONFIG } from './config.js';
@@ -7,12 +7,12 @@ import { Sound } from './audio.js';
 
 const LS_PREFIX = 'ghostfire.';
 
-let ysdk = null;       // экземпляр Яндекс SDK (null = режим заглушек)
-let yaPlayer = null;   // игрок Яндекса (облачные сейвы)
+let ysdk = null;       // экземпляр SDK (null = режим заглушек)
+let yaPlayer = null;   // игрок платформы (облачные сейвы)
 let payments = null;   // покупки (Яны)
 let cloud = null;      // кеш облачных данных player.getData()
 
-/** Пробуем подключить /sdk.js — он существует только на CDN Яндекс Игр. */
+/** Пробуем подключить /sdk.js — он существует только на CDN платформы. */
 function tryLoadYandexScript() {
   if (window.YaGames) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -38,7 +38,7 @@ function lsWrite(key, value) {
   catch { return false; }
 }
 
-/** Универсальное хранилище: localStorage всегда + облако Яндекса при наличии. */
+/** Универсальное хранилище: localStorage всегда + облако платформы при наличии. */
 async function store(key, value) {
   lsWrite(key, value);
   if (yaPlayer) {
@@ -52,15 +52,20 @@ function read(key) {
   return lsRead(key);
 }
 
+function normalizeLang(v){const l=String(v||'').toLowerCase().split('-')[0];return l==='en'?'en':'ru'}
+function detectLang(sdk){return normalizeLang(sdk?.environment?.i18n?.lang||navigator.language||'ru')}
+
 export const Platform = {
   ready: false,
   isYandex: false,
+  detectedLang: detectLang(null),
 
   async initSDK() {
     try {
       if (await tryLoadYandexScript()) {
         ysdk = await window.YaGames.init();
         this.isYandex = true;
+        this.detectedLang = detectLang(ysdk);
         try {
           yaPlayer = await ysdk.getPlayer();
           cloud = await yaPlayer.getData();
@@ -68,12 +73,12 @@ export const Platform = {
           console.warn('[platform] player unavailable', e);
           yaPlayer = null;
         }
-        console.log('[platform] Yandex Games SDK готов');
+        console.log('[platform] SDK готов');
         this.ready = true;
         return true;
       }
     } catch (e) {
-      console.warn('[platform] Yandex init failed → заглушки', e);
+      console.warn('[platform] init failed → заглушки', e);
       ysdk = null;
     }
     console.log('[platform] initSDK (stub)');
@@ -82,7 +87,7 @@ export const Platform = {
   },
 
   /**
-   * Ссылка вызова по окружению. Внутри Яндекса — ТОЛЬКО страница игры
+   * Ссылка вызова по окружению. Внутри платформы — ТОЛЬКО страница игры
    * в каталоге с payload (внешние домены в шеринге запрещены правилами);
    * null = ссылки нет, шеринг фолбэком через код.
    */
@@ -94,7 +99,7 @@ export const Platform = {
     return `${CONFIG.shareBaseUrl}?ghost=${code}`;
   },
 
-  /** Код призрака, с которым запустили игру: payload Яндекса или ?ghost=. */
+  /** Код призрака, с которым запустили игру: payload платформы или ?ghost=. */
   getLaunchPayload() {
     try {
       const p = ysdk?.environment?.payload;
@@ -103,7 +108,7 @@ export const Platform = {
     return new URLSearchParams(location.search).get('ghost');
   },
 
-  /** Сигнал "игра загружена и играбельна" — обязательное требование Яндекса.
+  /** Сигнал "игра загружена и играбельна" — обязательное требование платформы.
    *  Вызывается в конце boot(), когда меню уже показано. */
   gameReady() {
     try { ysdk?.features?.LoadingAPI?.ready?.(); } catch { /* старые версии SDK */ }
@@ -133,7 +138,7 @@ export const Platform = {
   },
 
   async showInterstitialAd(placement) {
-    // не чаще раза в 3 минуты — и на Яндексе, и в заглушке
+    // не чаще раза в 3 минуты — и на платформе, и в заглушке
     const now = Date.now();
     if (now - (this._lastInterstitialAt ?? 0) < 180000) return false;
     this._lastInterstitialAt = now;
@@ -171,9 +176,9 @@ export const Platform = {
   },
 
   // --- Экономика: госткоины ---
-  // Яны (Яндекс Payments) конвертируются в госткоины ТОЛЬКО в одну сторону
+  // Яны (платёжная система) конвертируются в госткоины ТОЛЬКО в одну сторону
   // через buyCoinsPack — вся UGC-экономика живёт в коинах, в каталоге
-  // покупок Яндекса только паки (id: pack_s / pack_m / pack_l).
+  // покупок платформы только паки (id: pack_s / pack_m / pack_l).
 
   async loadWallet() {
     return read('wallet') ?? { coins: 100, owned: ['default'], equipped: 'default' };
@@ -182,7 +187,7 @@ export const Platform = {
   async saveWallet(wallet) { return store('wallet', wallet); },
 
   /**
-   * Покупка пака госткоинов. На Яндексе — настоящая покупка за Яны
+   * Покупка пака госткоинов. На платформе — настоящая покупка за Яны
    * с consume после зачисления; в заглушке коины выдаются сразу.
    */
   async buyCoinsPack(packId, coins) {
