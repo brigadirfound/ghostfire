@@ -287,3 +287,15 @@ GitHub Pages через Actions (`.github/workflows/pages.yml`) — деплой
 - Спектатор-реплей целого матча (формат уже пишет всё нужное).
 - Динамическая музыка синтезом (Web Audio уже в проекте).
 - 3D-превью скина в карточке магазина; маски отдельным дешёвым слотом.
+
+---
+
+## Соответствие STANDARDS
+
+**Дата:** 2026-07-24
+
+- **п. 2.14:** `Platform.detectedLang` получает `ysdk.environment.i18n.lang` с fallback `navigator.language`.
+- **п. 1.6.2.7:** добавлены global `user-select:none`, suppression `contextmenu` / `selectstart` и исключение текстовых полей.
+- **п. 3.5:** платформенные комментарии вынесены/нейтрализованы; payload-конфигурация (`yandexAppId`, `yandexPayloadLimit`) сохранена как техническая локальная доработка внутри platform/config boundary.
+- **Уже было чисто:** wrapper использует `Sound.suspend()` / `Sound.resume()`, cooldown interstitial и маркировку rewarded-кнопок.
+
