@@ -146,6 +146,10 @@ export class Player {
     this.aiming = false;
     this.shotsFired = 0;
     this.shotsHit = 0;
+    // Во время отсчёта update() не вызывается (игрок ещё не может двигаться),
+    // поэтому позу надо сбросить здесь: иначе на спавне рука так и стоит в
+    // кадре, замершем на середине перезарядки прошлого раунда.
+    this._poseViewModel();
   }
 
   setWeapon(id, { refill = false } = {}) {

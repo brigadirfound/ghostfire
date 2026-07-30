@@ -5,9 +5,11 @@
 //   node tools/gen_music.mjs                 # только недостающие треки
 //   node tools/gen_music.mjs --only=menu     # конкретный трек
 //   node tools/gen_music.mjs --force         # перегенерировать существующие
+//   node tools/gen_music.mjs --reencode      # пережать имеющиеся, без Suno
 //
-// Оригинал Suno — стерео ~3 МБ на трек, для браузерной игры это неприемлемо:
-// ffmpeg режет до LOOP_SEC, сводит в моно и кодирует в BITRATE.
+// Оригинал Suno — ~3 МБ на трек, для браузерной игры это неприемлемо:
+// ffmpeg режет до LOOP_SEC и кодирует в BITRATE. Каналов два, хотя содержимое
+// моно: одноканальный mp3 часть браузеров проигрывает только в левое ухо.
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -23,7 +25,7 @@ const API_URL = 'https://www.suno-api.io/v1/chat/completions';
 const MODEL = 'suno-v5-5';
 const LOOP_SEC = 72;
 const FADE_SEC = 3;
-const BITRATE = '72k';
+const BITRATE = '88k';
 
 // Общая рамка стиля: без вокала, чтобы трек не спорил с выстрелами, и с
 // ровным темпом — иначе склейка петли слышна.
@@ -75,17 +77,45 @@ async function download(url) {
   return buffer;
 }
 
-/** Обрезает до петли, сводит в моно и жмёт: 3 МБ стерео в игре недопустимы. */
-function compress(rawPath, outPath) {
+/**
+ * Обрезает до петли и жмёт: оригинал 3 МБ в игре недопустим. Каналов два, хотя
+ * содержимое моно: одноканальный mp3 часть браузеров кладёт только в левое ухо.
+ */
+function compress(rawPath, outPath, { trim = true } = {}) {
+  const filters = ['pan=stereo|c0=c0+c1|c1=c0+c1'];
+  if (trim) filters.push(`afade=t=out:st=${LOOP_SEC - FADE_SEC}:d=${FADE_SEC}`, 'dynaudnorm=p=0.9');
   execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
     '-i', rawPath,
-    '-t', String(LOOP_SEC),
-    '-af', `afade=t=out:st=${LOOP_SEC - FADE_SEC}:d=${FADE_SEC},dynaudnorm=p=0.9`,
-    '-ac', '1', '-ar', '32000', '-b:a', BITRATE,
+    ...(trim ? ['-t', String(LOOP_SEC)] : []),
+    '-af', filters.join(','),
+    '-ac', '2', '-ar', '32000', '-b:a', BITRATE,
     '-map_metadata', '-1',
     outPath,
   ]);
+}
+
+/** Пережимает уже лежащие треки, не трогая Suno: правка формата, не контента. */
+function reencodeExisting(known, tmp) {
+  for (const track of TRACKS) {
+    const file = `${track.id}.mp3`;
+    const outPath = path.join(OUT_DIR, file);
+    if (!fs.existsSync(outPath)) { console.log(`- ${file} нет, пропуск`); continue; }
+    const stash = path.join(tmp, file);
+    fs.copyFileSync(outPath, stash);
+    compress(stash, outPath, { trim: false });
+    const bytes = fs.readFileSync(outPath);
+    const previous = known.get(file);
+    known.set(file, {
+      file,
+      itemId: previous?.itemId ?? '—',
+      title: previous?.title ?? '',
+      prompt: previous?.prompt ?? track.prompt,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+      kb: Math.round(bytes.length / 1024),
+    });
+    console.log(`= ${file} → стерео, ${Math.round(bytes.length / 1024)} КБ`);
+  }
 }
 
 function writeProvenance(entries) {
@@ -93,7 +123,7 @@ function writeProvenance(entries) {
     '# Провенанс музыки',
     '',
     'Треки сгенерированы через Suno API (`tools/gen_music.mjs`), модель ' + `\`${MODEL}\`` + '.',
-    'Оригиналы — стерео ~3 МБ; в игру попадает обрезанная до ' + LOOP_SEC + ' с моно-версия ' + BITRATE + '.',
+    'Оригиналы — ~3 МБ; в игру попадает обрезанная до ' + LOOP_SEC + ' с версия ' + BITRATE + ', стерео.',
     '',
     '| файл | item_id | название Suno | SHA-256 | КБ |',
     '| --- | --- | --- | --- | --- |',
@@ -126,8 +156,16 @@ async function main() {
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const known = readProvenance();
-  const key = apiKey();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostfire-music-'));
+
+  if (args.has('--reencode')) {
+    reencodeExisting(known, tmp);
+    writeProvenance(TRACKS.map(t => known.get(`${t.id}.mp3`)).filter(Boolean));
+    fs.rmSync(tmp, { recursive: true, force: true });
+    return;
+  }
+
+  const key = apiKey();
 
   for (const track of wanted) {
     const file = `${track.id}.mp3`;
