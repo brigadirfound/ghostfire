@@ -683,7 +683,7 @@ export class UI {
     if (!prev || prev.current !== current) $('ammo-cur').textContent = String(current);
     if (!prev || prev.max !== max) $('ammo-max').textContent = `/${max}`;
     $('ammo').classList.toggle('low', max > 0 && current <= Math.max(1, Math.ceil(max * 0.25)));
-    $('reload-note').classList.toggle('hidden', !reloading);
+    $('reload-note').classList.toggle('idle', !reloading);
     const reloadButton = $('btn-reload');
     if (reloadButton) reloadButton.classList.toggle('pending', reloading || (max > 0 && current === 0));
     if (!reloading) return;

@@ -146,7 +146,11 @@ function equirectTexture(img) {
   const ctx = probe.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, img.width, Math.max(1, Math.round(img.height * 0.04)), 0, 0, 1, 1);
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-  return { tex, zenith: `rgb(${r},${g},${b})` };
+  // Полоса у горизонта задаёт цвет тумана: фиксированная тёплая дымка спорила
+  // с ночными и дневными панорамами.
+  ctx.drawImage(img, 0, Math.round(img.height * 0.46), img.width, Math.max(1, Math.round(img.height * 0.08)), 0, 0, 1, 1);
+  const [hr, hg, hb] = ctx.getImageData(0, 0, 1, 1).data;
+  return { tex, zenith: `rgb(${r},${g},${b})`, horizon: `rgb(${hr},${hg},${hb})` };
 }
 
 /** Грузит скайбокс по URL (кеш по URL — реванш/повтор не перегружает). */
@@ -159,7 +163,8 @@ function loadSkybox(url) {
     if (url !== currentSkyboxUrl) return; // пока грузилась — выбрали другую карту
     // 2:1 — уже развёртка сферы, всё остальное считаем широким кадром.
     const isEquirect = Math.abs(img.width / img.height - 2) < 0.02;
-    const { tex, zenith } = isEquirect ? equirectTexture(img) : buildSkyTexture(img);
+    const { tex, zenith, horizon } = isEquirect ? equirectTexture(img) : buildSkyTexture(img);
+    if (horizon) scene.fog.color.set(horizon);
     const previous = skyMat.map;
     skyMat.map = tex;
     skyMat.color.set('#ffffff');

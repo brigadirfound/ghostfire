@@ -359,8 +359,10 @@ export class Player {
     vm.position.set(base.pos[0] - lift * 0.04, base.pos[1] + bobY + rise, base.pos[2] + kick - lift * 0.12);
     vm.rotation.set(base.rot[0] + tilt - kick * 1.4, base.rot[1], base.rot[2] + lift * 0.3);
     const grip = rightHandPoint(key);
+    // У одноручных пушек кисть ставится прямее — см. HAND_REST.rightOneHanded.
+    const rest = leftHandPoint(key) ? HAND_REST.right : HAND_REST.rightOneHanded;
     this.hand.position.set(grip[0] + bobX - lift * 0.04, grip[1] + bobY + rise, grip[2] + kick - lift * 0.12);
-    this.hand.rotation.set(HAND_REST.right.x + tilt * 0.6, HAND_REST.right.y, HAND_REST.right.z + lift * 0.3);
+    this.hand.rotation.set(rest.x + tilt * 0.6, rest.y, rest.z + lift * 0.3);
 
     const pose = leftHandPoint(key);
     // У пистолета левой руки в кадре нет — она появляется только чтобы подать

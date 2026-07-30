@@ -124,7 +124,9 @@ camera.add(model);
 const right = buildHand(skin);
 right.scale.setScalar(HAND_SCALE.right);
 right.position.set(...rightHandPoint(weapon.key));
-right.rotation.set(HAND_REST.right.x, HAND_REST.right.y, HAND_REST.right.z);
+// Та же развилка, что в игре: одноручные держат прямее.
+const rest = leftHandPoint(weapon.key) ? HAND_REST.right : HAND_REST.rightOneHanded;
+right.rotation.set(rest.x, rest.y, rest.z);
 camera.add(right);
 
 // ?lh=dx,dy,dz — примерка смещения левой кисти без правки исходника.

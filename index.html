@@ -147,8 +147,10 @@
   #ammo { font-family: 'Exo 2', sans-serif; font-style: italic; font-weight: 800; font-size: 40px; line-height: .95; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
   #ammo-max { font-size: 18px; opacity: .55; }
   #ammo.low #ammo-cur { color: #ff5544; }
-  #reload-note { font-size: 13px; letter-spacing: 1px; color: var(--accent2); margin-top: 4px; }
-  #reload-bar { width: 96px; height: 5px; margin-left: auto; margin-top: 3px; background: #0008; border: 1px solid #fff3; border-radius: 3px; overflow: hidden; }
+  /* Место под строку зарезервировано всегда: visibility, а не display. */
+  #reload-note { font-size: 13px; letter-spacing: 1px; color: var(--accent2); margin-bottom: 3px; }
+  #reload-note.idle { visibility: hidden; }
+  #reload-bar { width: 96px; height: 5px; margin-left: auto; margin-top: 2px; background: #0008; border: 1px solid #fff3; border-radius: 3px; overflow: hidden; }
   #reload-fill { height: 100%; width: 0; background: var(--accent2); transition: width .05s linear; }
   #score-mini { font-family: 'Russo One', 'Exo 2', sans-serif; font-weight: 400; position: absolute; top: calc(14px + var(--safe-top)); left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 900; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; background: #0006; padding: 4px 18px; border-radius: 8px; }
   #hitmarker { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) rotate(45deg); width: 30px; height: 30px; opacity: 0; }
@@ -227,6 +229,9 @@
   <div id="weapon-block">
     <img id="weapon-silhouette" src="assets/hud/pistol.png" alt="">
     <div>
+      <!-- Перезарядка стоит НАД названием и всегда занимает своё место:
+           снизу она толкала блок, и название с патронами прыгало. -->
+      <div id="reload-note" class="idle"><span id="reload-text"></span><div id="reload-bar"><div id="reload-fill"></div></div></div>
       <div id="weapon-readout">
         <img id="ammo-icon" class="icon" src="assets/icons/ammo.png" alt="">
         <div>
@@ -234,7 +239,6 @@
           <div id="ammo"><span id="ammo-cur">0</span><span id="ammo-max">/0</span></div>
         </div>
       </div>
-      <div id="reload-note" class="hidden"><span id="reload-text"></span><div id="reload-bar"><div id="reload-fill"></div></div></div>
     </div>
   </div>
   <div id="score-mini">0 : 0</div>
