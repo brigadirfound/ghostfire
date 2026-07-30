@@ -438,7 +438,7 @@ document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   // ESC во время игры снимает захват мыши → это и есть "открыть паузу"
   if (was && !locked && (G.state === 'playing' || G.state === 'countdown')) {
-    // При скрытии Yandex пришлёт authoritative game_api_pause; обычный Escape
+    // При скрытии площадка пришлёт authoritative game_api_pause; обычный Escape
     // во видимой вкладке остаётся ручной паузой.
     if (!(Platform.isYandex && document.hidden)) pauseMatch();
   }
@@ -463,7 +463,7 @@ document.addEventListener('mouseup', (e) => {
 // сворачивание вкладки: пауза матча и звука (требование площадок)
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    // На Яндексе состояние синхронизируют game_api_pause/resume. Если здесь
+    // На площадке состояние синхронизируют game_api_pause/resume. Если здесь
     // успеть поставить manual pause раньше SDK event, platform resume уже не
     // имеет права снять её. В offline режиме сохраняем прежнюю автопаузу.
     if (!Platform.isYandex && (G.state === 'playing' || G.state === 'countdown')) pauseMatch();
