@@ -13,6 +13,7 @@ import {
   ROUND_COUNTDOWN_SEC, ROUND_TEARDOWN_SEC, ROUND_SCREEN_SEC,
 } from './economy.js';
 import { Sound } from './audio.js';
+import { Music, trackForMap } from './music.js';
 import { t, setLang, resolveLanguage } from './i18n.js';
 
 // ---------- рендер ----------
@@ -256,7 +257,7 @@ const G = {
   playerGhost: null,   // сохранённая обёртка призрака игрока
 };
 
-const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true, tutorialDone: false };
+const settings = { lang: 'ru', fireMode: 'button', sensitivity: 1, sound: true, music: true, tutorialDone: false };
 
 // ---------- туториал первого запуска ----------
 const TUT = { active: false, step: 0, timer: 0 };
@@ -331,7 +332,11 @@ let defaultSkin = null;
 const ui = new UI({
   settings,
   startMatch,
-  saveSettings: persist,
+  saveSettings: () => {
+    Sound.setEnabled(settings.sound);
+    Music.setEnabled(settings.music !== false);
+    return persist();
+  },
   getPlayerGhost: () => G.playerGhost,
   getCustomMap: () => customMap,
   getShop: () => shop,
@@ -439,6 +444,7 @@ document.addEventListener('visibilitychange', () => {
   } else {
     // Не будим AudioContext в menu/matchend (там может идти platform ad).
     if (['loading', 'countdown', 'playing', 'roundend', 'roundscreen'].includes(G.state)) Sound.resume();
+    Music.duck(false);
   }
 });
 
@@ -473,6 +479,7 @@ function pauseMatch(source = 'manual') {
   if (G.player) G.player.input.fire = false;
   mobile.setPaused?.(true);
   Sound.suspend();
+  Music.duck(true);
   document.exitPointerLock?.();
   ui.buildPause();
 }
@@ -489,6 +496,7 @@ function resumeMatch(source = 'manual') {
   G.platformPaused = false;
   mobile.setPaused?.(false);
   Sound.resume();
+  Music.duck(false);
   // Аналогично, game_api_resume не нужно подтверждать вторым SDK-вызовом.
   if (G.state === 'playing' && source !== 'platform') Platform.gameplayStart?.();
   tryLock();
@@ -529,6 +537,7 @@ async function startMatch(mapId, ghostEntry) {
   }
   const startSeq = ++G.startSeq;
   Sound.init(); Sound.stopAll?.(); Sound.resume();
+  Music.play(trackForMap(mapId));
   G.state = 'loading';
   G.platformPaused = false;
   Platform.gameplayStop?.();
@@ -844,6 +853,7 @@ function endMatchToMenu() {
   Platform.gameplayStop?.();
   document.exitPointerLock?.();
   Sound.suspend();
+  Music.play('menu');
   cleanupMatchEntities();
   // Не удерживаем большой входящий replay/mapData после выхода. Собственный
   // G.playerGhost остаётся — он является сохранением игрока и нужен меню.
@@ -859,6 +869,7 @@ function endMatchToMenu() {
 // ---------- сохранение ----------
 async function persist() {
   Sound.setEnabled(settings.sound);
+  Music.setEnabled(settings.music !== false);
   mobile.applyFireMode();
   await Platform.savePlayer({ settings, ghost: G.playerGhost });
 }
@@ -880,6 +891,7 @@ async function boot() {
   settings.lang = resolveLanguage(saved?.settings?.lang, Platform.detectedLang);
   setLang(settings.lang);
   Sound.setEnabled(settings.sound);
+  Music.setEnabled(settings.music !== false);
   mobile.applyFireMode();
 
   defaultSkin = await (await fetch('skins/default.json')).json();
@@ -901,6 +913,10 @@ async function boot() {
   const launchEntry = launchCode ? decodeShareCode(launchCode) : null;
   if (launchEntry) ui.buildChallenge(launchCode);
   else ui.buildMenu();
+
+  // Музыка меню — после boot и лениво: mp3 не должен задерживать старт, а
+  // автоплей всё равно ждёт первого жеста игрока.
+  Music.play('menu');
 
   // прячем прелоадер, и только затем сигналим платформе о готовности
   setLoadProgress(1);

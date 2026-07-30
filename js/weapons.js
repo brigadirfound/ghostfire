@@ -15,13 +15,15 @@ export const PISTOL = 0, SHOTGUN = 1, RAILGUN = 2, SMG = 3, AR = 4, SNIPER = 5;
 // чувствуется, но прицел остаётся там, куда игрок навёл.
 // mag/reload — размер магазина и секунды перезарядки; запас патронов бесконечен.
 // zoomFov — угол обзора в прицеливании; есть только у оптики снайперки.
+// hipRecoil/hipViewKick — отдача при стрельбе от бедра, без прицела: точный
+// выстрел снайперки — награда за то, что игрок встал в оптику.
 export const WEAPONS = [
   { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018, viewKick: 0.05, mag: 12, reload: 1.1, sound: 'pistol' },
   { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05,  viewKick: 0.09, mag: 6,  reload: 1.7, falloff: true, sound: 'shotgun' },
   { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.012, viewKick: 0.12, mag: 3, reload: 2, sound: 'railgun' },
   { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012, viewKick: 0.035, mag: 30, reload: 1.4, sound: 'smg' },
   { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03,  viewKick: 0.055, mag: 25, reload: 1.5, sound: 'assault' },
-  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.016, viewKick: 0.14, mag: 5,  reload: 1.9, zoomFov: 30, sound: 'sniper' },
+  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.016, viewKick: 0.14, hipRecoil: 0.07, hipViewKick: 0.2, mag: 5,  reload: 1.9, zoomFov: 30, sound: 'sniper' },
 ];
 
 // Поза вьюмодели в руке: length — длина пушки в кадре (метры), плюс смещение
@@ -45,16 +47,17 @@ export function viewScale(key) {
   return VIEW_POSE[key].length / TARGET_LENGTH[key];
 }
 
-// Насколько левая кисть уходит вперёд от центра пушки, в метрах. Хранится
-// смещением, а не абсолютной точкой: иначе при смене VIEW_POSE рука повисает
-// отдельно от цевья. null — пушка одноручная, рука появляется на перезарядке.
+// Смещение левой кисти от центра пушки [dx, dy, dz], в метрах. Вектор, а не
+// одно "вперёд": модели пака не симметричны, и на длинных стволах кисть,
+// выставленная строго по оси, повисала в воздухе рядом с цевьём.
+// null — пушка одноручная, рука появляется только на перезарядке.
 export const LEFT_HAND_FORWARD = Object.freeze({
   pistol: null,
-  shotgun: 0.28,
-  railgun: 0.24,
-  smg: 0.18,
-  ar: 0.28,
-  sniper: 0.3,
+  shotgun: [-0.02, -0.01, -0.28],
+  railgun: [-0.02, 0, -0.24],
+  smg: [-0.02, -0.01, -0.18],
+  ar: [0.05, 0.02, -0.2],
+  sniper: [0.09, 0.03, -0.22],
 });
 
 // Грип относительно центра модели: чуть правее, ниже и ближе к игроку.
@@ -69,10 +72,10 @@ export function rightHandPoint(key) {
 
 /** Точка левой кисти для пушки: под стволом, со сдвигом наружу от грипа. */
 export function leftHandPoint(key) {
-  const forward = LEFT_HAND_FORWARD[key];
-  if (forward == null) return null;
+  const offset = LEFT_HAND_FORWARD[key];
+  if (offset == null) return null;
   const [x, y, z] = VIEW_POSE[key].pos;
-  return [x - 0.02, y, z - forward];
+  return [x + offset[0], y + offset[1], z + offset[2]];
 }
 
 // ---------- 3D-модели пушек ----------

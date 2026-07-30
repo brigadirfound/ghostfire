@@ -4,6 +4,7 @@
 
 import { CONFIG } from './config.js';
 import { Sound } from './audio.js';
+import { Music } from './music.js';
 import {
   VALIDATION_LIMITS,
   isPlainObject,
@@ -366,6 +367,7 @@ export const Platform = {
     this.gameplayStop();
     if (resumeGameplay) dispatchPlatformEvent('ghostfire:platform-pause');
     Sound.suspend();
+    Music.duck(true);
     return new Promise((resolve) => {
       let settled = false, rewarded = false;
       const timer = setTimeout(() => done(false), 20_000);
@@ -375,10 +377,11 @@ export const Platform = {
         clearTimeout(timer);
         if (resumeGameplay) {
           Sound.resume();
+          Music.duck(false);
           this.gameplayStart();
           dispatchPlatformEvent('ghostfire:platform-resume');
         }
-        else Sound.suspend();
+        else { Sound.suspend(); Music.duck(true); }
         resolve(value);
       };
       try {
@@ -400,6 +403,7 @@ export const Platform = {
     this.gameplayStop();
     if (resumeGameplay) dispatchPlatformEvent('ghostfire:platform-pause');
     Sound.suspend();
+    Music.duck(true);
     return new Promise((resolve) => {
       let settled = false;
       const timer = setTimeout(() => done(false), 20_000);
@@ -409,10 +413,11 @@ export const Platform = {
         clearTimeout(timer);
         if (resumeGameplay) {
           Sound.resume();
+          Music.duck(false);
           this.gameplayStart();
           dispatchPlatformEvent('ghostfire:platform-resume');
         }
-        else Sound.suspend();
+        else { Sound.suspend(); Music.duck(true); }
         resolve(value);
       };
       try {

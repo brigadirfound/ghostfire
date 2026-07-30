@@ -366,8 +366,11 @@ export class Player {
 
   _fire(w) {
     this.cooldown = w.cooldown;
-    this.recoilPitch += w.recoil;
-    this._vmKick = w.viewKick;
+    // От бедра снайперка бьёт с полноценным подбросом; точность — награда за
+    // то, что игрок потратил время и встал в оптику.
+    const hip = !this.aiming;
+    this.recoilPitch += hip && w.hipRecoil ? w.hipRecoil : w.recoil;
+    this._vmKick = hip && w.hipViewKick ? w.hipViewKick : w.viewKick;
     this.ammo[this.weapon] = Math.max(0, this.ammo[this.weapon] - 1);
     this.shotsFired++;
     Sound[w.sound]?.();

@@ -252,6 +252,7 @@ export function normalizePlayerData(raw) {
     fireMode: s.fireMode === 'auto' ? 'auto' : 'button',
     sensitivity: finite(s.sensitivity, 0.3, 2.5) ? s.sensitivity : 1,
     sound: s.sound !== false,
+    music: s.music !== false,
     tutorialDone: s.tutorialDone === true,
   };
   if (isPlainObject(s.lastPick) && (BUILTIN_MAPS.has(s.lastPick.map) || s.lastPick.map === '__custom') &&

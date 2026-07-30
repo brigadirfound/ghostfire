@@ -101,7 +101,12 @@ right.position.set(...rightHandPoint(weapon.key));
 right.rotation.set(HAND_REST.right.x, HAND_REST.right.y, HAND_REST.right.z);
 camera.add(right);
 
-const leftPose = leftHandPoint(weapon.key);
+// ?lh=dx,dy,dz — примерка смещения левой кисти без правки исходника.
+const lhOverride = params.get('lh')?.split(',').map(Number);
+const leftPose = lhOverride?.length === 3 && lhOverride.every(Number.isFinite)
+  ? VIEW_POSE[weapon.key].pos.map((v, i) => v + lhOverride[i])
+  : leftHandPoint(weapon.key);
+if (lhOverride) document.getElementById('label').textContent += ` · lh ${lhOverride.join(',')}`;
 if (leftPose) {
   const left = buildHand(skin);
   left.scale.setScalar(HAND_SCALE.left);

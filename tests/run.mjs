@@ -195,6 +195,23 @@ test('every weapon carries a magazine, reload time and a left-hand pose', () => 
   }
 });
 
+test('every arena has its own music track and none of them is oversized', () => {
+  const maps = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
+  for (const track of ['menu', ...maps]) {
+    const file = new URL(`../assets/music/${track}.mp3`, import.meta.url);
+    const bytes = readFileSync(file);
+    assert.ok(bytes.length > 50_000, `${track}.mp3 подозрительно мал`);
+    // Больше мегабайта на трек — игра начнёт грузиться заметно дольше.
+    assert.ok(bytes.length < 1_000_000, `${track}.mp3 весит ${Math.round(bytes.length / 1024)} КБ`);
+    assert.equal(bytes.subarray(0, 3).toString('ascii'), 'ID3', `${track}.mp3 не mp3`);
+  }
+  // Ключ Suno живёт вне репозитория и не должен попасть ни в код, ни в провенанс.
+  const generator = readFileSync(new URL('../tools/gen_music.mjs', import.meta.url), 'utf8');
+  const provenance = readFileSync(new URL('../assets/music/PROVENANCE.md', import.meta.url), 'utf8');
+  for (const text of [generator, provenance]) assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}/);
+  assert.match(generator, /process\.env\.SUNO_API_KEY/);
+});
+
 test('platform locale decides the language only when the player never chose one', () => {
   assert.equal(normalizePlayerData({ settings: {} }).settings.lang, null);
   assert.equal(normalizePlayerData({ settings: { lang: 'xx' } }).settings.lang, null);

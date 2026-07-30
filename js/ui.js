@@ -473,6 +473,11 @@ export class UI {
       this.a.saveSettings();
       this.buildSettings(backFn);
     }));
+    row(t('music'), this._toggle(st.music !== false ? t('on') : t('off'), () => {
+      st.music = st.music === false;
+      this.a.saveSettings();
+      this.buildSettings(backFn);
+    }));
     const sens = el('input');
     sens.type = 'range'; sens.min = '0.3'; sens.max = '2.5'; sens.step = '0.1';
     sens.value = st.sensitivity;

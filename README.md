@@ -85,6 +85,7 @@ npx http-server -p 8123 -c-1 .
 ```bash
 npm test                         # syntax, JSON/glTF, карты, пикапы, replay, unit
 node tools/sim_economy.mjs       # экономика: минуты игры до первого скина
+node tools/gen_music.mjs         # музыка меню и арен через Suno (нужен ключ)
 node tools/stage_runtime.mjs out # тот же runtime-whitelist, что использует Pages
 npm run pack                     # только на чистом worktree
 ```

@@ -88,3 +88,11 @@ copyright license.
 No embedded provenance record was found for `assets/menu_bg.jpg` or for any
 other raster asset not covered above. Their redistribution rights should be
 confirmed by the applicable rights holder before a public release.
+
+## Музыка
+
+`assets/music/*.mp3` — шесть треков (меню и пять арен), сгенерированы через
+Suno API моделью `suno-v5-5` инструментом `tools/gen_music.mjs`. Промпты,
+`item_id` каждой генерации и SHA-256 итоговых файлов записаны в
+`assets/music/PROVENANCE.md`. В игру попадают обрезанные до 72 секунд моно-версии
+72 kbps; оригиналы (стерео, ~2–5 МБ) не хранятся в репозитории.
