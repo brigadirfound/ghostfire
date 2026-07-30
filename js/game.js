@@ -788,9 +788,11 @@ function endRound(playerWon) {
   if (playerWon) Sound.winRound(); else Sound.loseRound();
   ui.setScore(G.score.me, G.score.foe);
   if (G._lastKill) {
-    const weapon = t(WEAPONS[G._lastKill.weaponId].key);
-    const zone = t(G._lastKill.headshot ? 'zoneHead' : 'zoneBody');
-    ui.banner(t(playerWon ? 'killfeedWin' : 'killfeedLose', weapon, zone));
+    ui.banner({
+      won: playerWon,
+      weaponKey: WEAPONS[G._lastKill.weaponId].key,
+      headshot: G._lastKill.headshot,
+    });
     G._lastKill = null;
   }
 }

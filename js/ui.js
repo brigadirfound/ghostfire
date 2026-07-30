@@ -67,6 +67,24 @@ function scoreDisplay(playerScore, ghostScore) {
   return score;
 }
 
+/** Значок исхода: венок за победу, треснувший щит за поражение. */
+function resultBadge(won) {
+  const img = el('img', 'result-badge');
+  img.src = `assets/icons/${won ? 'victory' : 'defeat'}.png`;
+  img.alt = '';
+  return img;
+}
+
+/** Чип статистики: иконка, подпись, значение. */
+function statChip(icon, label, value) {
+  const chip = el('div', 'stat-chip');
+  const img = el('img');
+  img.src = `assets/icons/${icon}.png`;
+  img.alt = '';
+  chip.append(img, el('span', '', label), el('b', '', value));
+  return chip;
+}
+
 function rewardRow(cls, label, amount = '') {
   const row = el('div', `reward-row${cls ? ` ${cls}` : ''}`);
   row.append(el('span', '', label), el('b', '', amount));
@@ -538,10 +556,13 @@ export class UI {
   showRoundScreen(playerScore, ghostScore, playerWon) {
     const s = $('screen-round');
     clear(s);
-    s.append(
-      el('h2', '', playerWon ? t('roundWin') : t('roundLose')),
+    const panel = el('div', `result-panel ${playerWon ? 'win' : 'lose'}`);
+    panel.append(
+      resultBadge(playerWon),
+      el('div', 'result-title', playerWon ? t('roundWin') : t('roundLose')),
       scoreDisplay(playerScore, ghostScore),
     );
+    s.append(panel);
     this.show('round');
   }
 
@@ -549,22 +570,38 @@ export class UI {
     const s = $('screen-match');
     clear(s);
     const safeAccuracy = Math.min(1, Math.max(0, finiteNumber(accuracy)));
-    s.append(
-      el('h2', '', won ? t('matchWin') : t('matchLose')),
-      scoreDisplay(playerScore, ghostScore),
-      el('div', '', `${t('accuracy')}: ${Math.round(safeAccuracy * 100)}%`),
-    );
     const headshots = Math.max(0, Math.round(finiteNumber(hitStats?.headshots)));
     const bodyshots = Math.max(0, Math.round(finiteNumber(hitStats?.bodyshots)));
-    if (headshots + bodyshots > 0) {
-      const total = headshots + bodyshots;
-      s.append(el('div', '', `${t('headshots')}: ${headshots} (${Math.round(headshots / total * 100)}%)`));
-    }
     const ownerTime = durationText(timing?.ownerDurationSec);
     const playerTime = durationText(timing?.playerBestDurationSec);
-    if (ownerTime) s.append(el('div', 'gdesc', `${t('ownerTime')}: ${ownerTime}`));
-    if (playerTime) s.append(el('div', 'gdesc', `${t('yourBestTime')}: ${playerTime}`));
-    if (timing?.beatOwnerTime === true) s.append(el('div', 'gdesc', t('beatOwnerTime')));
+
+    // Итог матча — одна панель: значок, заголовок, счёт и статистика чипами.
+    const panel = el('div', `result-panel ${won ? 'win' : 'lose'}`);
+    panel.append(
+      resultBadge(won),
+      el('div', 'result-title', won ? t('matchWin') : t('matchLose')),
+      scoreDisplay(playerScore, ghostScore),
+    );
+    const stats = el('div', 'result-stats');
+    stats.append(statChip('ammo', t('accuracy'), `${Math.round(safeAccuracy * 100)}%`));
+    if (headshots + bodyshots > 0) {
+      const total = headshots + bodyshots;
+      stats.append(statChip('skull', t('headshots'), `${headshots} · ${Math.round(headshots / total * 100)}%`));
+    }
+    if (playerTime) stats.append(statChip('streak', t('yourBestTime'), playerTime));
+    if (ownerTime) stats.append(statChip('ghost', t('ownerTime'), ownerTime));
+    panel.append(stats);
+    if (timing?.beatOwnerTime === true) {
+      const beat = el('div', 'stat-chip gold');
+      const icon = el('img');
+      icon.src = 'assets/icons/victory.png';
+      icon.alt = '';
+      beat.append(icon, el('b', '', t('beatOwnerTime')));
+      const row = el('div', 'result-stats');
+      row.append(beat);
+      panel.append(row);
+    }
+    s.append(panel);
     if (reward && Array.isArray(reward.lines)) {
       const box = el('div', 'reward-box');
       for (const line of reward.lines.slice(0, 16)) {
@@ -712,11 +749,24 @@ export class UI {
     c.classList.remove('hidden');
     c.textContent = n > 0 ? n : 'GO';
   }
-  banner(text) {
+  /**
+   * Килфид. kill = { won, weaponKey, headshot } либо null, чтобы убрать.
+   * Иконка зоны и силуэт пушки берутся из тех же наборов, что HUD.
+   */
+  banner(kill) {
     const b = $('round-banner');
-    if (!text) { b.classList.add('hidden'); return; }
+    if (!kill) { b.classList.add('hidden'); return; }
+    const zone = kill.headshot ? 'skull' : 'torso';
+    $('banner-zone').src = `assets/icons/${zone}.png`;
+    $('banner-weapon').src = `assets/hud/${kill.weaponKey}.png`;
+    $('banner-text').textContent = kill.won ? t('killfeedWin') : t('killfeedLose');
+    b.classList.toggle('lost', !kill.won);
+    b.classList.toggle('head', Boolean(kill.headshot));
     b.classList.remove('hidden');
-    b.textContent = text;
+    // Перезапуск анимации: подряд идущие фраги должны всплывать каждый раз.
+    b.style.animation = 'none';
+    void b.offsetWidth;
+    b.style.animation = '';
   }
 
   /** @param icon — имя файла из assets/icons без расширения. */

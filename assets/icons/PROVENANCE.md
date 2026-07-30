@@ -14,7 +14,13 @@
 | ammo.png | 2749e6b145ce87ee… | 6 | — |
 | reload.png | b8a414d783e303e7… | 7 | — |
 | ghost.png | 732ccd30fc990c78… | 5 | — |
-| howto.png | 3df847a292f24d0c… | 6 | b58c12b9-1c4b-46e2-99ec-de320a88a3d4 |
+| howto.png | 3df847a292f24d0c… | 6 | — |
+| skull.png | 5e86fa91551d0405… | 7 | 0115317e-e88a-4773-a8b5-bf4313374368 |
+| torso.png | 1e6b930badc3530f… | 7 | 11cb88f3-e6a8-4420-879a-a0dc837bbee3 |
+| victory.png | 135df5f0f6f18efc… | 14 | b674dab6-e604-494e-a916-8c39430b7cb1 |
+| defeat.png | 88ba76c51ee25a53… | 8 | 014b96ef-863b-4d0c-ad82-bedf5511355e |
+| badge.png | 272ec88471214158… | 11 | a082b39a-b12b-41c8-b445-34070ff939a8 |
+| streak.png | edc0efff2eb5e2af… | 4 | 64f41570-5f0b-45b6-9a9e-00236af0b6b7 |
 
 ## Промпты
 
@@ -76,4 +82,40 @@ flat vector game UI icon, single centered symbol, thick bold shapes, no gradient
 
 ```
 flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a question mark inside a rounded square badge
+```
+
+### skull.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a blocky voxel skull, front view, two square eye sockets
+```
+
+### torso.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a blocky voxel torso silhouette with a target ring on the chest
+```
+
+### victory.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a laurel wreath open at the top, symmetrical
+```
+
+### defeat.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a cracked shield broken in two along a jagged line
+```
+
+### badge.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, an empty hexagonal frame with thick beveled border and hollow center, nothing inside
+```
+
+### streak.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a bold lightning bolt
 ```

@@ -162,7 +162,39 @@
   #damage-vignette { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(255,0,0,.55); opacity: 0; transition: opacity .4s; }
 
   #countdown { position: absolute; left: 50%; top: 38%; transform: translate(-50%,-50%); font-size: 110px; font-weight: 900; color: var(--accent2); text-shadow: 5px 5px 0 #000; }
-  #round-banner { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font-size: 40px; font-weight: 900; text-shadow: 3px 3px 0 #000; text-align: center; }
+  /* Килфид: плашка с иконкой зоны, текстом и силуэтом оружия. */
+  #round-banner { position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px; padding: 8px 18px;
+    background: linear-gradient(90deg, #0e131aee, #1b2430ee, #0e131aee);
+    border: 2px solid #3a4450; border-left: 4px solid var(--accent); border-right: 4px solid var(--accent);
+    border-radius: 8px; box-shadow: 0 6px 24px #000a;
+    font-family: 'Russo One', 'Exo 2', sans-serif; font-size: 24px; font-weight: 400;
+    letter-spacing: 1px; text-shadow: 2px 2px 0 #000; white-space: nowrap;
+    animation: killfeed-in .18s ease-out; }
+  #round-banner.lost { border-left-color: #ff3322; border-right-color: #ff3322; }
+  #round-banner.head #banner-zone { filter: drop-shadow(0 0 6px rgba(255,190,60,.9)); }
+  #banner-zone { width: 34px; height: 34px; object-fit: contain; }
+  #banner-weapon { height: 34px; max-width: 120px; object-fit: contain; opacity: .95; }
+  @keyframes killfeed-in { from { opacity: 0; transform: translate(-50%, -10px) scale(.96); }
+    to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+
+  /* Экраны раунда и матча: одна панель на оба. */
+  .result-panel { width: min(560px, 92vw); background: linear-gradient(180deg, #1b2430f2, #10161ef2);
+    border: 3px solid #2a3038; border-radius: 14px; padding: 18px 20px 20px; text-align: center;
+    box-shadow: 0 14px 40px #000a, inset 0 1px 0 #ffffff12; }
+  .result-panel.win { border-color: var(--accent2); }
+  .result-panel.lose { border-color: #ff4433; }
+  .result-badge { width: 92px; height: 92px; object-fit: contain; margin-bottom: -6px;
+    filter: drop-shadow(0 0 14px rgba(51,221,255,.45)); }
+  .result-panel.lose .result-badge { filter: drop-shadow(0 0 14px rgba(255,68,51,.45)); }
+  .result-title { font-family: 'Russo One', 'Exo 2', sans-serif; font-size: 30px; letter-spacing: 2px;
+    text-transform: uppercase; margin: 2px 0 6px; }
+  .result-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; margin-top: 12px; }
+  .stat-chip { display: flex; align-items: center; gap: 7px; padding: 6px 12px; background: #0e131a99;
+    border: 1px solid #2a3038; border-radius: 999px; font-size: 14px; }
+  .stat-chip img { width: 18px; height: 18px; object-fit: contain; opacity: .85; }
+  .stat-chip b { color: var(--accent2); font-size: 16px; }
+  .stat-chip.gold b { color: #ffd75e; }
   #toast { position: fixed; bottom: calc(44px + var(--safe-bottom)); left: 50%; transform: translateX(-50%); background: #232a33; border: 2px solid var(--accent2); border-radius: 8px; padding: 10px 22px; font-weight: 700; z-index: 60; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; text-align: center; }
   #toast.show { opacity: 1; }
   .reward-box { width: min(340px, 86vw); background: #1a2028; border: 2px solid #2a3038; border-radius: 8px; padding: 10px 16px; }
@@ -243,7 +275,11 @@
   </div>
   <div id="score-mini">0 : 0</div>
   <div id="countdown" class="hidden"></div>
-  <div id="round-banner" class="hidden"></div>
+  <div id="round-banner" class="hidden">
+    <img id="banner-zone" alt="">
+    <span id="banner-text"></span>
+    <img id="banner-weapon" alt="">
+  </div>
   <!-- туториал первого запуска -->
   <div id="tut-box" class="hidden"><span id="tut-text"></span><button id="tut-close">✕</button></div>
   <div id="tut-arrow" class="hidden">👇</div>

@@ -36,6 +36,13 @@ const ICONS = [
   { id: 'reload', prompt: `${STYLE}, two arrows forming a circular refresh loop` },
   { id: 'ghost', prompt: `${STYLE}, a blocky voxel ghost with a wavy bottom edge and two eyes` },
   { id: 'howto', prompt: `${STYLE}, a question mark inside a rounded square badge` },
+  // Килфид и экраны раунда/матча: смысловые значки в том же стиле.
+  { id: 'skull', prompt: `${STYLE}, a blocky voxel skull, front view, two square eye sockets` },
+  { id: 'torso', prompt: `${STYLE}, a blocky voxel torso silhouette with a target ring on the chest` },
+  { id: 'victory', prompt: `${STYLE}, a laurel wreath open at the top, symmetrical` },
+  { id: 'defeat', prompt: `${STYLE}, a cracked shield broken in two along a jagged line` },
+  { id: 'badge', prompt: `${STYLE}, an empty hexagonal frame with thick beveled border and hollow center, nothing inside` },
+  { id: 'streak', prompt: `${STYLE}, a bold lightning bolt` },
 ];
 
 function readLocalEnv() {
