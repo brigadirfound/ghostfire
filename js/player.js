@@ -11,6 +11,14 @@ const VIEW_KICK_RECOVERY = 0.9;
 // Куда приходит левая кисть у пистолета — только на время перезарядки.
 const PISTOL_RELOAD_HAND = [0.2, -0.5, -0.72];
 
+// Базовый разворот кистей. Без него предплечье шло строго вдоль ствола и рука
+// выглядела бруском: теперь она приходит снизу-сбоку под ~45°, как у живого
+// хвата. y разводит руки наружу, x опускает локоть, z доворачивает кулак.
+const HAND_REST = Object.freeze({
+  right: { x: 0.5, y: 0.34, z: -0.16 },
+  left: { x: 0.58, y: -0.46, z: 0.18 },
+});
+
 const ease = (t) => {
   const k = Math.min(1, Math.max(0, t));
   return k * k * (3 - 2 * k);
@@ -74,11 +82,12 @@ export class Player {
     });
     // кисть у грипа — только кулак+манжета, не вся рука, чтобы не перекрывать экран
     this.hand = this._buildHand();
-    this.hand.position.set(0.24, -0.36, -0.32);
+    this.hand.scale.setScalar(0.78); // на 0.32 м от глаза кулак занимал треть кадра
+    this.hand.position.set(0.29, -0.31, -0.46);
     this.camera.add(this.hand);
     // левая кисть держит цевьё двуручных пушек и подаёт магазин при перезарядке
-    this.handL = this._buildHand(true);
-    this.handL.scale.multiplyScalar(0.85); // дальняя кисть не должна спорить с правой
+    this.handL = this._buildHand();
+    this.handL.scale.setScalar(0.72); // дальняя кисть не должна спорить с правой
     this.handL.visible = false;
     this.camera.add(this.handL);
     this._vmKick = 0;
@@ -92,9 +101,8 @@ export class Player {
   }
 
   /** Маленький кулак+манжета у грипа — воксельный, цвета кожи/рукава скина. */
-  _buildHand(mirrored = false) {
+  _buildHand() {
     const g = new THREE.Group();
-    if (mirrored) g.scale.x = -1; // зеркальная копия: манжета смотрит наружу
     const skinMat = new THREE.MeshLambertMaterial({ color: this.skin.body.arms });
     const sleeveMat = new THREE.MeshLambertMaterial({ color: this.skin.body.torso });
     // яркая полоска цветом трассера — чтобы кисть не сливалась с тёмными
@@ -104,10 +112,14 @@ export class Player {
     fist.position.set(0, 0, 0.03);
     const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.16), sleeveMat);
     sleeve.position.set(0, -0.03, 0.21);
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.185, 0.03, 0.165), trimMat);
-    trim.position.set(0, 0.06, 0.21);
-    fist.castShadow = sleeve.castShadow = true;
-    g.add(fist, sleeve, trim);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.035, 0.05), trimMat);
+    trim.position.set(0, 0.055, 0.15);
+    // Предплечье: без него кисть читалась обрубком, торчащим вдоль ствола.
+    // Вместе с наклоном группы (HAND_REST) даёт руку, приходящую снизу-сбоку.
+    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.34), sleeveMat);
+    forearm.position.set(0, -0.05, 0.44);
+    fist.castShadow = sleeve.castShadow = forearm.castShadow = true;
+    g.add(fist, sleeve, trim, forearm);
     return g;
   }
 
@@ -332,16 +344,15 @@ export class Player {
       : 1 - ease((r - 0.72) / 0.28);
     // Короткий рывок стволом вниз в конце — «дослал и вернул».
     const snap = active && r > 0.74 && r < 0.9 ? Math.sin((r - 0.74) / 0.16 * Math.PI) : 0;
-    const sink = lift * 0.13 + snap * 0.05;
-    const tilt = lift * 0.5 + snap * 0.35;
+    const rise = lift * 0.1 - snap * 0.04;
+    const tilt = lift * 0.45 + snap * 0.35;
 
-    // Кулаки сидят у самого near-плана и при подъёме раздувались на пол-экрана,
-    // поэтому ствол клюёт вниз: кисти уходят за нижнюю кромку, в кадре остаются
-    // наклонённый ствол и левая рука с магазином.
-    vm.position.set(0.3 + lift * 0.02, -0.3 + bobY - sink, -0.5 + kick - lift * 0.05);
-    vm.rotation.set(tilt - kick * 1.4, 0, lift * 0.18);
-    this.hand.position.set(0.24 + bobX + lift * 0.02, -0.36 + bobY - sink, -0.32 + kick - lift * 0.05);
-    this.hand.rotation.set(tilt * 0.6, 0, lift * 0.18);
+    // Связка одновременно поднимается и отводится от камеры: кулаки сидят у
+    // near-плана, и без отвода они раздуваются на пол-экрана.
+    vm.position.set(0.3 - lift * 0.04, -0.3 + bobY + rise, -0.5 + kick - lift * 0.12);
+    vm.rotation.set(tilt - kick * 1.4, 0, lift * 0.3);
+    this.hand.position.set(0.29 + bobX - lift * 0.04, -0.31 + bobY + rise, -0.46 + kick - lift * 0.12);
+    this.hand.rotation.set(HAND_REST.right.x + tilt * 0.6, HAND_REST.right.y, HAND_REST.right.z + lift * 0.3);
 
     const pose = LEFT_HAND_POSE[key];
     // У пистолета левой руки в кадре нет — она появляется только чтобы подать
@@ -355,10 +366,10 @@ export class Player {
       : 1 - ease(Math.min(1, (r - 0.45) / 0.32));
     this.handL.position.set(
       lx + bobX,
-      ly + bobY - sink - dip * 0.2,
-      lz + kick - lift * 0.05,
+      ly + bobY + rise - dip * 0.24,
+      lz + kick - lift * 0.14,
     );
-    this.handL.rotation.set(tilt * 0.5 + dip * 0.5, 0, 0);
+    this.handL.rotation.set(HAND_REST.left.x + tilt * 0.5 + dip * 0.5, HAND_REST.left.y, HAND_REST.left.z);
   }
 
   _fire(w) {
