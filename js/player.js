@@ -205,6 +205,18 @@ export class Player {
     return out.set(this.pos.x, this.pos.y + MOVE.eye, this.pos.z);
   }
 
+  /**
+   * Мировая точка дула. Хитскан по-прежнему идёт из центра камеры (иначе
+   * прицел врал бы), но трассер рисуется отсюда — выстрел виден из оружия,
+   * а не из переносицы. В оптике модель скрыта, поэтому дуло = центр экрана.
+   */
+  getMuzzlePoint(out = new THREE.Vector3()) {
+    const pose = VIEW_POSE[WEAPONS[this.weapon].key];
+    if (this.aiming || !pose) out.set(0, -0.02, -0.6);
+    else out.set(pose.pos[0], pose.pos[1] + 0.05, pose.pos[2] - pose.length * 0.5);
+    return this.camera.localToWorld(out);
+  }
+
   takeDamage(dmg) {
     if (!this.alive) return;
     this.hp = Math.max(0, this.hp - dmg);

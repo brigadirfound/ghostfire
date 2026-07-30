@@ -213,6 +213,31 @@ test('every arena has its own music track and none of them is oversized', () => 
   assert.match(generator, /process\.env\.SUNO_API_KEY/);
 });
 
+test('tracers start at the muzzle and editor drops pickups above the block', () => {
+  const player = readFileSync(new URL('../js/player.js', import.meta.url), 'utf8');
+  // Хитскан остаётся из центра камеры, трасса — от ствола.
+  assert.match(player, /getMuzzlePoint\(out = new THREE\.Vector3\(\)\)/);
+  assert.match(player, /pose\.pos\[2\] - pose\.length \* 0\.5/);
+  const game = readFileSync(new URL('../js/game.js', import.meta.url), 'utf8');
+  assert.match(game, /const muzzle = G\.player\.getMuzzlePoint\(_muzzle\)/);
+  assert.doesNotMatch(game, /const from = origin\.clone\(\)\.addScaledVector/);
+
+  // Блок [x,y,z] занимает y…y+1, поэтому точка оружия ставится на y+1.6 —
+  // как в готовых картах. На y+0.6 пикап оказывался внутри блока.
+  const editor = readFileSync(new URL('../js/editor.js', import.meta.url), 'utf8');
+  assert.match(editor, /pos: \[cellOn\.x \+ 0\.5, cellOn\.y \+ 1\.6, cellOn\.z \+ 0\.5\]/);
+  const maps = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
+  for (const id of maps) {
+    const map = JSON.parse(readFileSync(new URL(`../maps/${id}.json`, import.meta.url), 'utf8'));
+    const solid = new Set(map.blocks.map(([x, y, z]) => `${x}|${y}|${z}`));
+    for (const spot of map.weapons) {
+      const [x, y, z] = spot.pos;
+      const inside = solid.has(`${Math.floor(x)}|${Math.floor(y)}|${Math.floor(z)}`);
+      assert.equal(inside, false, `${id}: точка оружия ${spot.pos.join(',')} внутри блока`);
+    }
+  }
+});
+
 test('paid packs stay disabled and skin prices never come from the UI', () => {
   const config = readFileSync(new URL('../js/config.js', import.meta.url), 'utf8');
   // Задел на покупки: код готов, но в этом релизе флаг обязан быть выключен.

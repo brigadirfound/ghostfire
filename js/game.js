@@ -673,6 +673,7 @@ function currentRoundDuration() {
 
 // выстрел игрока → hitscan по призраку
 const _assistDir = new THREE.Vector3();
+const _muzzle = new THREE.Vector3();
 function playerShoots(weaponId, origin, dir) {
   if (G.state !== 'playing') return 0;
   _assistDir.copy(dir);
@@ -681,11 +682,11 @@ function playerShoots(weaponId, origin, dir) {
     G.ghost.alive ? [G.ghost.target] : []);
   const skin = G.skin;
   const color = weaponId === RAILGUN ? skin.railTracer : skin.tracer;
+  // Трасса рисуется от дула вьюмодели: попадание считается из центра камеры,
+  // а видимая линия должна выходить из ствола, иначе стреляет будто голова.
+  const muzzle = G.player.getMuzzlePoint(_muzzle);
   for (const end of res.tracerEnds) {
-    // трассер из "дула" чуть ниже глаз
-    const from = origin.clone().addScaledVector(_assistDir, 0.4);
-    from.y -= 0.12;
-    G.tracers.spawn(from, end, color, weaponId === RAILGUN ? 0.4 : 0.12);
+    G.tracers.spawn(muzzle, end, color, weaponId === RAILGUN ? 0.4 : 0.12);
   }
   G.matchShots++;
   if (res.hits > 0) {

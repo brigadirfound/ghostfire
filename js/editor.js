@@ -119,8 +119,78 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.BasicShadowMap;
 
+/** Тот же процедурный тайл, что в игре, размноженный по декоративной геометрии. */
+function sceneryTexture(name, color, repeat) {
+  const texture = new THREE.TextureLoader().load(tilePreviewURL(name, color, 64));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.NearestFilter;
+  texture.repeat.set(repeat, repeat);
+  return texture;
+}
+
+/** Мини-PRNG: декор обязан быть одинаковым при каждом открытии редактора. */
+function sceneryRandom(seed) {
+  let state = seed | 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), state | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Вертикальный градиент вместо плоской заливки: сцена перестаёт быть «листом». */
+function buildEditorSky() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 4; canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+  gradient.addColorStop(0, '#1a2340');
+  gradient.addColorStop(0.55, '#39476b');
+  gradient.addColorStop(1, '#6d7f9c');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 4, 256);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/** Блочная подложка и «горы» по краям — только декор, вне рабочей области. */
+function buildEditorEnvironment(target) {
+  const ground = new THREE.Mesh(
+    new THREE.BoxGeometry(220, 2, 220),
+    new THREE.MeshLambertMaterial({ map: sceneryTexture('grass_dirt', '#3f6b2e', 110) }),
+  );
+  ground.position.set(12, -1.2, 12);
+  ground.receiveShadow = true;
+  target.add(ground);
+
+  // Детерминированная расстановка: редактор должен выглядеть одинаково всегда.
+  const rand = sceneryRandom(0x5eed);
+  const material = new THREE.MeshLambertMaterial({ map: sceneryTexture('stone', '#5a6472', 2) });
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const scenery = new THREE.Group();
+  for (let i = 0; i < 70; i++) {
+    const angle = rand() * Math.PI * 2;
+    // Дальше рабочей области и заметно ниже: декор не должен нависать над картой.
+    const radius = 62 + rand() * 48;
+    const height = 1 + Math.floor(rand() * 4);
+    const block = new THREE.Mesh(geometry, material);
+    block.scale.set(3 + rand() * 4, height * 2, 3 + rand() * 4);
+    block.position.set(12 + Math.cos(angle) * radius, height - 0.5, 12 + Math.sin(angle) * radius);
+    block.castShadow = block.receiveShadow = true;
+    scenery.add(block);
+  }
+  target.add(scenery);
+}
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#7ec8e8');
+// Плоский голубой фон и серо-зелёная плоскость выглядели пустыми, поэтому
+// сцена собрана из тех же блоков и текстур, что игра: градиентное небо,
+// блочный «пол» под сеткой и редкие блоки по периметру для глубины.
+scene.background = buildEditorSky();
+scene.fog = new THREE.Fog('#2b3550', 90, 190);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 300);
 camera.position.set(34, 26, 34);
 const controls = new OrbitControls(camera, canvas);
@@ -139,9 +209,10 @@ sun.shadow.camera.top = 30;
 sun.shadow.camera.bottom = -30;
 sun.shadow.camera.far = 150;
 scene.add(sun);
-const grid = new THREE.GridHelper(64, 64, '#446', '#335');
+const grid = new THREE.GridHelper(64, 64, '#5a6a8a', '#3d4a63');
 grid.position.set(0, 0.01, 0);
 scene.add(grid);
+buildEditorEnvironment(scene);
 
 function resize() {
   const width = Math.max(1, canvas.clientWidth || canvas.parentElement.clientWidth);
@@ -256,7 +327,7 @@ function rebuild() {
       new THREE.BoxGeometry(0.6, 0.3, 0.6),
       new THREE.MeshLambertMaterial({ color: WEAPON_MARKER_COLORS[weapon.type] ?? '#dd3322' }),
     );
-    marker.position.set(weapon.pos[0], weapon.pos[1] + 0.3, weapon.pos[2]);
+    marker.position.set(weapon.pos[0], weapon.pos[1], weapon.pos[2]); // ровно там, где пикап
     markers.add(marker);
   }
 }
@@ -401,7 +472,8 @@ function handleClick(event) {
         Math.abs(weapon.pos[2] - (cellOn.z + 0.5)) < 0.6);
       if (index >= 0) ed.weapons.splice(index, 1);
       else if (ed.weapons.length < MAX_WEAPONS) {
-        ed.weapons.push({ type, pos: [cellOn.x + 0.5, cellOn.y + 0.6, cellOn.z + 0.5] });
+        // Блок [x,y,z] занимает y…y+1, пикап в игре висит на 0.6 над его верхом.
+        ed.weapons.push({ type, pos: [cellOn.x + 0.5, cellOn.y + 1.6, cellOn.z + 0.5] });
       } else {
         status(tr('edWeaponLimit'), false);
         return;

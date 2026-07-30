@@ -183,7 +183,13 @@ export async function initSkinEditor(status) {
   if (!defaultResponse.ok) throw new Error(`default skin: HTTP ${defaultResponse.status}`);
   const defaultSkin = await defaultResponse.json();
   let skin = normalizeSkin((await Platform.loadSkin()) ?? defaultSkin, defaultSkin);
+  // Модель уже стоит лицом к камере, поэтому стартовый угол нулевой. Важно
+  // другое: угол переживает пересборку — раньше смена маски или цвета сбрасывала
+  // поворот, и персонаж внезапно оказывался спиной.
+  const FRONT_ANGLE = 0;
+  let previewAngle = FRONT_ANGLE;
   let preview = new THREE.Group();
+  preview.rotation.y = previewAngle;
   scene.add(preview);
 
   let disposed = false;
@@ -218,6 +224,7 @@ export async function initSkinEditor(status) {
   function rebuild() {
     const oldPreview = preview;
     preview = new THREE.Group();
+    preview.rotation.y = previewAngle;
     scene.add(preview);
     retire(oldPreview);
 
@@ -471,7 +478,8 @@ export async function initSkinEditor(status) {
     drainRetired();
     const delta = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
-    preview.rotation.y += delta * 0.36;
+    previewAngle += delta * 0.36;
+    preview.rotation.y = previewAngle;
     renderer.render(scene, camera);
   }
 
