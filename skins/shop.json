@@ -1,4 +1,5 @@
 {
+  "customSkinPrice": 300,
   "packs": [
     { "id": "pack_s", "coins": 200, "priceYan": 10 },
     { "id": "pack_m", "coins": 550, "priceYan": 25 },
@@ -6,7 +7,7 @@
   ],
   "skins": [
     {
-      "id": "neon", "name": "Неон", "price": 150,
+      "id": "neon", "name": "Неон", "price": 200,
       "skin": {
         "id": "neon", "name": "Неон",
         "body": { "head": "#1a1a2e", "torso": "#ff2fd6", "arms": "#1a1a2e", "legs": "#2b2b45" },
@@ -40,7 +41,7 @@
       }
     },
     {
-      "id": "forest", "name": "Лесной", "price": 150,
+      "id": "forest", "name": "Лесной", "price": 200,
       "skin": {
         "id": "forest", "name": "Лесной",
         "body": { "head": "#d8c49a", "torso": "#3f6b2e", "arms": "#d8c49a", "legs": "#2c4a20" },
@@ -57,7 +58,7 @@
       }
     },
     {
-      "id": "void", "name": "Пустота", "price": 600,
+      "id": "void", "name": "Пустота", "price": 500,
       "skin": {
         "id": "void", "name": "Пустота",
         "body": { "head": "#0b0b12", "torso": "#191926", "arms": "#0b0b12", "legs": "#12121c" },

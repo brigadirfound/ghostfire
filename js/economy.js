@@ -2,13 +2,27 @@
 // Награда ТОЛЬКО за завершённый матч. Анти-абьюз: бонусы за одного и того же
 // призрака друга — не чаще 3 раз в день (по хешу записи).
 
+// Калибровка: первый скин магазина должен стоить 30–60 минут игры, а не
+// пары матчей. Проверяется симуляцией — node tools/sim_economy.mjs.
 export const BASE_REWARD = 8;
-export const WIN_REWARD = 25;
-export const SWEEP_BONUS = 15;
-export const FRIEND_BONUS = 40;
+export const WIN_REWARD = 10;
+export const SWEEP_BONUS = 4;
+export const FRIEND_BONUS = 12;
 export const FRIEND_DAILY_LIMIT = 3;
-const BUILTIN_MULTS = new Set([1, 1.5, 2, 2.5, 3]);
+
+// Множители награды по сложности. Единственный источник и для UI, и для
+// allow-list: раньше эти списки жили в трёх файлах независимо.
+export const BUILTIN_MULTS = Object.freeze([1, 1.15, 1.3, 1.45, 1.6]);
+export const CUSTOM_BOT_MULTS = Object.freeze([1, 1.3, 1.6]);
+const ALLOWED_MULTS = new Set([...BUILTIN_MULTS, ...CUSTOM_BOT_MULTS]);
 const MAX_WALLET_COINS = 1_000_000_000;
+
+// Правила и темп матча. Награда выдаётся за матч, поэтому симулятор экономики
+// (tools/sim_economy.mjs) считает время по этим же константам, что и игра.
+export const WINS_TO_TAKE_MATCH = 5;
+export const ROUND_COUNTDOWN_SEC = 3;    // отсчёт перед раундом
+export const ROUND_TEARDOWN_SEC = 1.1;   // разлёт кубиков после смерти
+export const ROUND_SCREEN_SEC = 2;       // межраундовый экран со счётом
 
 /**
  * Полный двойной 32-bit хеш записи. Это не серверная защита от читов, но в
@@ -26,16 +40,31 @@ export function ghostHash(data) {
   return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0') + ':' + value.length;
 }
 
-export function localDate(nowMs = Date.now()) {
+/**
+ * Календарная дата игрока: время берём доверенное (serverTime платформы),
+ * а границу суток — по часовому поясу устройства, иначе «первая победа дня»
+ * сбрасывалась бы в 03:00 МСК. Подкрутка пояса даёт максимум одну лишнюю дату:
+ * даты сравниваются только вперёд (см. isNewDay).
+ */
+export function localDate(nowMs = Date.now(), tzOffsetMinutes = undefined) {
   const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
-  const d = new Date(safeNow);
+  const rawOffset = Number.isFinite(tzOffsetMinutes)
+    ? tzOffsetMinutes
+    : new Date(safeNow).getTimezoneOffset();
+  const offset = Math.max(-840, Math.min(840, Math.trunc(rawOffset)));
+  const d = new Date(safeNow - offset * 60_000);
   const p = n => String(n).padStart(2, '0');
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
+/** ISO-даты сравнимы лексикографически. Часы «назад» новый день не открывают. */
+export function isNewDay(today, storedDate) {
+  return typeof storedDate !== 'string' || !storedDate || storedDate < today;
+}
+
 /**
  * Расчёт награды. entry._builtin — встроенный бот, entry._diffMult — множитель
- * сложности (1/1.5/2/2.5/3). Не мутирует кошелёк.
+ * сложности из BUILTIN_MULTS/CUSTOM_BOT_MULTS. Не мутирует кошелёк.
  * @returns { lines: [{key, amount, suffix?}], total, firstWin, hash, isFriend, limited }
  */
 export function computeMatchReward(won, foeScore, entry, wallet, nowMs = Date.now()) {
@@ -53,13 +82,15 @@ export function computeMatchReward(won, foeScore, entry, wallet, nowMs = Date.no
 
   if (won) {
     if (isFriend) {
+      // Счётчик действует, пока его дата не в прошлом: перевод часов назад
+      // не обнуляет дневной лимит.
       const gr = wallet.ghostRewards;
-      const count = (gr && gr.date === today && gr.counts && Number.isFinite(gr.counts[hash]))
-        ? gr.counts[hash] : 0;
+      const active = gr && !isNewDay(today, gr.date);
+      const count = active && gr.counts && Number.isFinite(gr.counts[hash]) ? gr.counts[hash] : 0;
       limited = count >= FRIEND_DAILY_LIMIT;
     }
     const requestedMult = Number(entry?._diffMult);
-    const mult = isBuiltin && BUILTIN_MULTS.has(requestedMult) ? requestedMult : 1;
+    const mult = isBuiltin && ALLOWED_MULTS.has(requestedMult) ? requestedMult : 1;
     lines.push({ key: 'rewardWin', amount: Math.round(WIN_REWARD * mult), suffix: mult !== 1 ? ` ×${mult}` : '' });
     if (foeScore === 0) lines.push({ key: 'rewardSweep', amount: SWEEP_BONUS });
     if (isFriend && limited) lines.push({ key: 'rewardLimit', amount: 0 });
@@ -68,7 +99,7 @@ export function computeMatchReward(won, foeScore, entry, wallet, nowMs = Date.no
 
   let total = lines.reduce((s, l) => s + l.amount, 0);
   let firstWin = false;
-  if (won && wallet.lastWinDate !== today) {
+  if (won && isNewDay(today, wallet.lastWinDate)) {
     firstWin = true;
     total *= 2; // первая победа дня — ×2 на всю награду матча
   }
@@ -82,9 +113,11 @@ export function applyMatchReward(wallet, reward, won, nowMs = Date.now()) {
   const amount = Number.isFinite(reward?.total) ? Math.max(0, Math.round(reward.total)) : 0;
   wallet.coins = Math.min(MAX_WALLET_COINS, current + amount);
   if (won) {
-    wallet.lastWinDate = today;
+    // Дата победы двигается только вперёд, иначе перевод часов назад
+    // выдавал бы «первую победу дня» ×2 повторно.
+    if (isNewDay(today, wallet.lastWinDate)) wallet.lastWinDate = today;
     if (reward.isFriend && !reward.limited) {
-      if (!wallet.ghostRewards || wallet.ghostRewards.date !== today) {
+      if (!wallet.ghostRewards || isNewDay(today, wallet.ghostRewards.date)) {
         wallet.ghostRewards = { date: today, counts: {} };
       }
       wallet.ghostRewards.counts[reward.hash] = (wallet.ghostRewards.counts[reward.hash] ?? 0) + 1;

@@ -8,11 +8,10 @@ import { CONFIG } from './config.js';
 import { Platform } from './platform.js';
 import { VALIDATION_LIMITS, validateShareEntry } from './validation.js';
 import { decompressURIComponentBounded } from './lz-bounded.js';
+import { BUILTIN_MULTS, CUSTOM_BOT_MULTS } from './economy.js';
 
 const BUILTIN_MAPS = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
 const BUILTIN_GHOSTS = ['shadow', 'smoke', 'phantom', 'mirage', 'inferno'];
-
-const BUILTIN_MULTS = [1, 1.5, 2, 2.5, 3]; // множители награды по сложности
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -195,12 +194,12 @@ export class UI {
           namedDescription(`${t('botOnMap')} · ${t(name)}`),
           el('div', 'gdiff', '★'.repeat(i + 1)),
         );
-        card.append(el('div', 'gdesc', t('rewardMult', [1, 2, 3][i])));
+        card.append(el('div', 'gdesc', t('rewardMult', CUSTOM_BOT_MULTS[i])));
         card.onclick = () => {
           this._rememberPick('__custom', { type: 'custombot', index: i });
           const entry = synthBotForMap(this.a.getCustomMap(), i);
           entry._builtin = true;
-          entry._diffMult = [1, 2, 3][i];
+          entry._diffMult = CUSTOM_BOT_MULTS[i];
           this.a.startMatch('__custom', entry);
         };
         s.append(card);
@@ -289,7 +288,7 @@ export class UI {
     } else if (lp.ghost.type === 'custombot') {
       const entry = synthBotForMap(this.a.getCustomMap(), lp.ghost.index);
       entry._builtin = true;
-      entry._diffMult = [1, 2, 3][lp.ghost.index];
+      entry._diffMult = CUSTOM_BOT_MULTS[lp.ghost.index];
       this.a.startMatch('__custom', entry);
     } else {
       const mine = this.a.getPlayerGhost();
@@ -358,7 +357,7 @@ export class UI {
     const items = [
       { id: 'default', name: t('skinDefault'), price: 0, skin: null },
       ...shop.skins,
-      { id: 'custom', name: t('customSkin'), price: 300, skin: null, isCustom: true },
+      { id: 'custom', name: t('customSkin'), price: shop.customSkinPrice, skin: null, isCustom: true },
     ];
     for (const item of items) {
       const card = el('div', 'map-card');

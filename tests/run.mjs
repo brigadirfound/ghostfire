@@ -4,6 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { STRINGS, localizedName, resolveLanguage, setLang } from '../js/i18n.js';
 import { Sound } from '../js/audio.js';
 import { createSeededRandom } from '../tools/lib/prng.mjs';
+import { PROFILES, simulate } from '../tools/sim_economy.mjs';
+import {
+  applyMatchReward, computeMatchReward, BASE_REWARD, WIN_REWARD, BUILTIN_MULTS,
+} from '../js/economy.js';
+import { STARTING_COINS, VALIDATION_LIMITS, normalizePlayerData, normalizeWallet } from '../js/validation.js';
 import { collectRuntimeFiles, createRuntimeManifest, isRuntimePath } from '../tools/lib/runtime.mjs';
 import { createDeterministicZip } from '../tools/lib/zip.mjs';
 
@@ -150,6 +155,54 @@ test('runtime manifest carries exact file checksums', () => {
   });
   assert.equal(manifest.files.length, collectRuntimeFiles(root).length);
   assert.ok(manifest.files.every((file) => /^[0-9a-f]{64}$/.test(file.sha256) && file.bytes > 0));
+});
+
+test('platform locale decides the language only when the player never chose one', () => {
+  assert.equal(normalizePlayerData({ settings: {} }).settings.lang, null);
+  assert.equal(normalizePlayerData({ settings: { lang: 'xx' } }).settings.lang, null);
+  assert.equal(normalizePlayerData({ settings: { lang: 'en' } }).settings.lang, 'en');
+  assert.equal(resolveLanguage(null, 'en'), 'en');
+  assert.equal(resolveLanguage('ru', 'en'), 'ru');
+  const gameSource = readFileSync(new URL('../js/game.js', import.meta.url), 'utf8');
+  assert.match(gameSource, /resolveLanguage\(saved\?\.settings\?\.lang, Platform\.detectedLang\)/);
+  const platformSource = readFileSync(new URL('../js/platform.js', import.meta.url), 'utf8');
+  // RU-локали и правило «язык не сообщили → RU только внутри Яндекс.Игр».
+  assert.match(platformSource, /RU_LOCALES = new Set\(\['ru', 'be', 'uk', 'kk', 'uz', 'ky', 'tg', 'tk'\]\)/);
+  assert.match(platformSource, /normalizeLang\([^)]*navigator\.language[^)]*sdk \? 'ru' : 'en'\)/s);
+});
+
+test('first shop skin costs 20+ minutes of play for every profile', () => {
+  const shop = JSON.parse(readFileSync(new URL('../skins/shop.json', import.meta.url), 'utf8'));
+  const cheapest = Math.min(...shop.skins.map(s => s.price));
+  assert.ok(STARTING_COINS < cheapest / 2, 'стартовый баланс не должен покрывать половину скина');
+  for (const profile of PROFILES) {
+    const result = simulate(profile, { matches: 200 });
+    assert.ok(result.firstSkin, `${profile.id}: скин недостижим за 200 матчей`);
+    // Нижняя граница: даже сильный игрок без рекламы играет минимум 20 минут.
+    assert.ok(result.firstSkin.minutes >= 20,
+      `${profile.id}: первый скин за ${result.firstSkin.minutes.toFixed(1)} мин — слишком быстро`);
+    // Верхняя: средний профиль не должен упираться в стену дольше часа с четвертью.
+    if (profile.id !== 'newbie') {
+      assert.ok(result.firstSkin.minutes <= 75,
+        `${profile.id}: первый скин за ${result.firstSkin.minutes.toFixed(1)} мин — слишком долго`);
+    }
+  }
+});
+
+test('rewards stay inside a bounded wallet and only builtin bots get a multiplier', () => {
+  const wallet = normalizeWallet({});
+  assert.equal(wallet.coins, STARTING_COINS);
+  const now = Date.UTC(2026, 5, 10, 12, 0, 0);
+  const hostile = { data: 'x', _builtin: true, _diffMult: 999 };
+  const clamped = computeMatchReward(true, 1, hostile, wallet, now);
+  assert.equal(clamped.total, (BASE_REWARD + WIN_REWARD) * 2); // ×2 за первую победу дня
+  const best = computeMatchReward(true, 1, { data: 'x', _builtin: true, _diffMult: Math.max(...BUILTIN_MULTS) },
+    { coins: 0, lastWinDate: '2999-01-01' }, now);
+  assert.equal(best.firstWin, false);
+  assert.equal(best.total, BASE_REWARD + Math.round(WIN_REWARD * Math.max(...BUILTIN_MULTS)));
+  const overflow = { coins: VALIDATION_LIMITS.walletCoins - 1 };
+  applyMatchReward(overflow, { total: 10_000, isFriend: false }, true, now);
+  assert.equal(overflow.coins, VALIDATION_LIMITS.walletCoins);
 });
 
 test('ZIP output is deterministic for normalized inputs', () => {

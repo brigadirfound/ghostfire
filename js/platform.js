@@ -14,7 +14,8 @@ import {
 } from './validation.js';
 
 const LS_PREFIX = 'ghostfire.';
-const RU_FALLBACK_LOCALES = new Set(['ru', 'be', 'kk', 'uk', 'uz']);
+// Локали, где русская версия игры полезнее английской.
+const RU_LOCALES = new Set(['ru', 'be', 'uk', 'kk', 'uz', 'ky', 'tg', 'tk']);
 
 let ysdk = null;
 let yaPlayer = null;
@@ -167,13 +168,22 @@ function read(key) {
   return lsRead(key);
 }
 
-function normalizeLang(value) {
+/**
+ * Политика языка: RU для локалей RU_LOCALES, EN для остальных известных.
+ * Если язык не сообщили вовсе — RU внутри Яндекс.Игр (каталог русскоязычный)
+ * и EN на прочих площадках, где сборка публикуется международной.
+ * Явный выбор игрока в настройках приоритетнее любого автоопределения.
+ */
+function normalizeLang(value, unknownFallback = 'en') {
   const lang = String(value || '').toLowerCase().split('-')[0];
-  return RU_FALLBACK_LOCALES.has(lang) ? 'ru' : 'en';
+  if (!lang) return unknownFallback;
+  return RU_LOCALES.has(lang) ? 'ru' : 'en';
 }
 
 function detectLang(sdk) {
-  return normalizeLang(sdk?.environment?.i18n?.lang || navigator.language || 'en');
+  const reported = sdk?.environment?.i18n?.lang;
+  if (reported) return normalizeLang(reported);
+  return normalizeLang(typeof navigator !== 'undefined' ? navigator.language : '', sdk ? 'ru' : 'en');
 }
 
 function normalizeStats(raw) {

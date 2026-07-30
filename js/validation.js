@@ -19,6 +19,10 @@ export const VALIDATION_LIMITS = Object.freeze({
   walletCoins: 1_000_000_000,
 });
 
+// Стартовый баланс. Был 100 при цене первого скина 150 — две трети покупки
+// выдавались до первого матча, и магазин открывался почти сразу.
+export const STARTING_COINS = 0;
+
 const BUILTIN_MAPS = new Set(['arena01', 'arena02', 'arena03', 'arena04', 'arena05']);
 const MAP_TEXTURES = new Set([
   'stone', 'brick', 'planks', 'grass_dirt', 'grass', 'dirt', 'sand', 'metal',
@@ -209,7 +213,7 @@ export function validateShareEntry(raw) {
 
 export function normalizeWallet(raw) {
   const src = isPlainObject(raw) ? raw : {};
-  const coins = integer(src.coins, 0, VALIDATION_LIMITS.walletCoins) ? src.coins : 100;
+  const coins = integer(src.coins, 0, VALIDATION_LIMITS.walletCoins) ? src.coins : STARTING_COINS;
   const owned = Array.isArray(src.owned)
     ? [...new Set(src.owned.filter(v => typeof v === 'string' && ID.test(v)).slice(0, 64))]
     : [];
@@ -242,7 +246,9 @@ export function normalizePlayerData(raw) {
   if (!isPlainObject(raw)) return null;
   const s = isPlainObject(raw.settings) ? raw.settings : {};
   const settings = {
-    lang: s.lang === 'en' ? 'en' : 'ru',
+    // null = игрок язык не выбирал; тогда решает автоопределение платформы,
+    // иначе сейв без явной настройки навсегда прибивал игру к русскому.
+    lang: s.lang === 'en' || s.lang === 'ru' ? s.lang : null,
     fireMode: s.fireMode === 'auto' ? 'auto' : 'button',
     sensitivity: finite(s.sensitivity, 0.3, 2.5) ? s.sensitivity : 1,
     sound: s.sound !== false,

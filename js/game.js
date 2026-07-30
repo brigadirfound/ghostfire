@@ -8,11 +8,12 @@ import { Recorder, decode, TICK_RATE } from './replay.js';
 import { MobileControls, IS_TOUCH } from './mobile.js';
 import { UI, decodeShareCode } from './ui.js';
 import { Platform } from './platform.js';
-import { computeMatchReward, applyMatchReward } from './economy.js';
+import {
+  computeMatchReward, applyMatchReward, WINS_TO_TAKE_MATCH,
+  ROUND_COUNTDOWN_SEC, ROUND_TEARDOWN_SEC, ROUND_SCREEN_SEC,
+} from './economy.js';
 import { Sound } from './audio.js';
-import { t, setLang } from './i18n.js';
-
-const WINS_TO_TAKE_MATCH = 5;
+import { t, setLang, resolveLanguage } from './i18n.js';
 
 // ---------- рендер ----------
 const canvas = document.getElementById('game-canvas');
@@ -346,14 +347,27 @@ const ui = new UI({
   exitMatch: () => endMatchToMenu(),
 });
 
+/** Цена по каталогу, а не по объекту из UI: цену назначают только данные. */
+function catalogSkinPrice(id) {
+  if (id === 'default') return 0;
+  if (id === 'custom') {
+    return Number.isInteger(shop.customSkinPrice) && shop.customSkinPrice >= 0 ? shop.customSkinPrice : Infinity;
+  }
+  const item = shop.skins?.find(s => s.id === id);
+  return Number.isInteger(item?.price) && item.price >= 0 ? item.price : Infinity;
+}
+
 /** Покупка/надевание скина из магазина. Возвращает 'ok' | 'poor'. */
 async function buyOrEquipSkin(item) {
-  if (!wallet.owned.includes(item.id)) {
-    if (wallet.coins < item.price) return 'poor';
-    wallet.coins -= item.price;
-    wallet.owned.push(item.id);
+  const id = item?.id;
+  if (typeof id !== 'string' || !/^[a-z0-9_-]{1,48}$/i.test(id)) return 'poor';
+  if (!wallet.owned.includes(id)) {
+    const price = catalogSkinPrice(id);
+    if (!Number.isFinite(price) || wallet.coins < price) return 'poor';
+    wallet.coins -= price;
+    wallet.owned.push(id);
   }
-  wallet.equipped = item.id;
+  wallet.equipped = id;
   await Platform.saveWallet(wallet);
   G.skin = await resolveActiveSkin();
   return 'ok';
@@ -619,8 +633,8 @@ function startRound() {
   ui.setScore(G.score.me, G.score.foe);
   ui.banner(null);
   G.state = 'countdown';
-  G.countdownT = 3;
-  ui.countdown(3);
+  G.countdownT = ROUND_COUNTDOWN_SEC;
+  ui.countdown(Math.ceil(ROUND_COUNTDOWN_SEC));
   Sound.countdown();
   tryLock();
 }
@@ -728,7 +742,7 @@ function onPlayerDied() {
 function endRound(playerWon) {
   G.state = 'roundend';
   Platform.gameplayStop?.();
-  G.roundEndT = 1.1; // даём кубикам разлететься
+  G.roundEndT = ROUND_TEARDOWN_SEC; // даём кубикам разлететься
   G._roundPlayerWon = playerWon;
   if (playerWon) Sound.winRound(); else Sound.loseRound();
   ui.setScore(G.score.me, G.score.foe);
@@ -750,7 +764,7 @@ function afterRoundPause() {
     if (G.state !== 'roundscreen') return;
     ui.hideAll();
     startRound();
-  }, 2000);
+  }, ROUND_SCREEN_SEC * 1000);
 }
 
 async function endMatch() {
@@ -857,8 +871,9 @@ async function boot() {
   setLoadProgress(0.35);
   const saved = await Platform.loadPlayer();
   if (saved?.settings) Object.assign(settings, saved.settings);
-  else if (Platform.detectedLang) settings.lang = Platform.detectedLang;
   if (saved?.ghost) G.playerGhost = saved.ghost;
+  // Выбор игрока > язык площадки/браузера > русский как последняя опора.
+  settings.lang = resolveLanguage(saved?.settings?.lang, Platform.detectedLang);
   setLang(settings.lang);
   Sound.setEnabled(settings.sound);
   mobile.applyFireMode();

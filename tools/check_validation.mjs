@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import LZString from '../vendor/lz-string.js';
 
 import { CONFIG } from '../js/config.js';
-import { applyMatchReward, computeMatchReward, localDate } from '../js/economy.js';
+import {
+  applyMatchReward, computeMatchReward, localDate, isNewDay,
+  BASE_REWARD, WIN_REWARD, FRIEND_BONUS, FRIEND_DAILY_LIMIT,
+} from '../js/economy.js';
 import { decompressURIComponentBounded } from '../js/lz-bounded.js';
 import {
   VALIDATION_LIMITS,
@@ -44,22 +47,53 @@ assert.equal('_builtin' in privileged.value, false);
 assert.equal('_diffMult' in privileged.value, false);
 assert.equal('_rewardClass' in privileged.value, false);
 
+// Суммы выводятся из констант: перекалибровка экономики не должна ломать
+// проверку смысла — множитель сложности к чужому призраку не применяется.
 const rewardWallet = { coins: 0, lastWinDate: localDate() };
 const ownReward = computeMatchReward(true, 1, { ...canonical.value, _rewardClass: 'self' }, rewardWallet);
 assert.equal(ownReward.isFriend, false);
-assert.equal(ownReward.total, 33);
+assert.equal(ownReward.total, BASE_REWARD + WIN_REWARD);
 const incomingReward = computeMatchReward(true, 1, privileged.value, rewardWallet);
 assert.equal(incomingReward.isFriend, true);
-assert.equal(incomingReward.total, 73);
+assert.equal(incomingReward.total, BASE_REWARD + WIN_REWARD + FRIEND_BONUS);
 
-const trustedNow = Date.UTC(2026, 0, 2, 0, 0, 1);
-assert.equal(localDate(trustedNow), '2026-01-02');
+// Граница суток идёт по часовому поясу устройства при доверенном времени.
+const midnightUTC = Date.UTC(2026, 0, 2, 0, 0, 1);
+assert.equal(localDate(midnightUTC, 0), '2026-01-02');
+assert.equal(localDate(midnightUTC, -180), '2026-01-02');  // МСК: 03:00 того же дня
+assert.equal(localDate(midnightUTC, 300), '2026-01-01');   // EST: сутки ещё не сменились
+assert.equal(localDate(midnightUTC, 99_999), localDate(midnightUTC, 840)); // offset зажат
+
+const trustedNow = Date.UTC(2026, 0, 2, 12, 0, 0);
+const todayLocal = localDate(trustedNow);
+const yesterdayLocal = localDate(trustedNow - 86_400_000);
+assert.ok(isNewDay(todayLocal, yesterdayLocal));
+assert.equal(isNewDay(yesterdayLocal, todayLocal), false);
 const datedReward = computeMatchReward(true, 1, { ...canonical.value, _rewardClass: 'self' },
-  { coins: 0, lastWinDate: '2026-01-01' }, trustedNow);
+  { coins: 0, lastWinDate: yesterdayLocal }, trustedNow);
 assert.equal(datedReward.firstWin, true);
-const datedWallet = { coins: 0, lastWinDate: '2026-01-01' };
+const datedWallet = { coins: 0, lastWinDate: yesterdayLocal };
 applyMatchReward(datedWallet, datedReward, true, trustedNow);
-assert.equal(datedWallet.lastWinDate, '2026-01-02');
+assert.equal(datedWallet.lastWinDate, todayLocal);
+
+// Перевод часов назад не открывает новый день: ни второго ×2, ни сброса лимита.
+const rewound = trustedNow - 3 * 86_400_000;
+const rewoundReward = computeMatchReward(true, 1, { ...canonical.value, _rewardClass: 'self' },
+  datedWallet, rewound);
+assert.equal(rewoundReward.firstWin, false);
+applyMatchReward(datedWallet, rewoundReward, true, rewound);
+assert.equal(datedWallet.lastWinDate, todayLocal);
+
+const farmWallet = { coins: 0 };
+for (let i = 0; i < FRIEND_DAILY_LIMIT; i++) {
+  const reward = computeMatchReward(true, 1, privileged.value, farmWallet, trustedNow);
+  assert.equal(reward.limited, false);
+  applyMatchReward(farmWallet, reward, true, trustedNow);
+}
+const cappedNow = computeMatchReward(true, 1, privileged.value, farmWallet, trustedNow);
+assert.equal(cappedNow.limited, true);
+const cappedRewound = computeMatchReward(true, 1, privileged.value, farmWallet, rewound);
+assert.equal(cappedRewound.limited, true);
 
 // Decoder and boundary validator agree that every event tick is < frameCount.
 const bytes = Buffer.from(ghost.data, 'base64');
