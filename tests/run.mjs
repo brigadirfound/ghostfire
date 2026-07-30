@@ -279,6 +279,17 @@ test('paid packs stay disabled and skin prices never come from the UI', () => {
   assert.match(ui, /if \(CONFIG\.paymentsEnabled\)/);
 });
 
+test('release packer locks sharing to the platform', () => {
+  const packer = readFileSync(new URL('../tools/pack_release.mjs', import.meta.url), 'utf8');
+  assert.match(packer, /function lockToYandexBuild/);
+  assert.match(packer, /yandexBuild:\s*true/);
+  // В репозитории флаг остаётся выключенным: локально и на Pages ссылка нужна.
+  const config = readFileSync(new URL('../js/config.js', import.meta.url), 'utf8');
+  assert.match(config, /yandexBuild:\s*false/);
+  const platform = readFileSync(new URL('../js/platform.js', import.meta.url), 'utf8');
+  assert.match(platform, /if \(this\.isYandex \|\| CONFIG\.yandexBuild\)/);
+});
+
 test('UI assets are present, light and self-hosted', () => {
   const icons = ['play', 'code', 'shop', 'editor', 'settings', 'heart', 'ammo', 'reload', 'ghost'];
   for (const icon of icons) {

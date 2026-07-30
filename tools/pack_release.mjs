@@ -28,7 +28,25 @@ if (context.dirty && !allowDirty) {
 const files = collectRuntimeFiles(root);
 const manifest = createRuntimeManifest(root, context);
 const manifestData = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
-const entries = files.map((path) => ({ path, data: readFileSync(new URL(`../${path}`, import.meta.url)) }));
+/**
+ * В релизном пакете шеринг обязан быть заперт на площадку: ссылка на свой
+ * хостинг = перенаправление трафика и повод для отказа модерации. Флаг
+ * ставится здесь, а не руками в config.js, чтобы о нём нельзя было забыть.
+ */
+function lockToYandexBuild(path, data) {
+  if (path !== 'js/config.js') return data;
+  const source = data.toString('utf8');
+  const patched = source.replace(/yandexBuild:\s*false/, 'yandexBuild: true');
+  if (patched === source && !/yandexBuild:\s*true/.test(source)) {
+    throw new Error('js/config.js: не найден флаг yandexBuild — пакет собирать нельзя');
+  }
+  return Buffer.from(patched, 'utf8');
+}
+
+const entries = files.map((path) => ({
+  path,
+  data: lockToYandexBuild(path, readFileSync(new URL(`../${path}`, import.meta.url))),
+}));
 entries.push({ path: 'release-manifest.json', data: manifestData });
 const archive = createDeterministicZip(entries, context.sourceDateEpoch);
 const archiveHash = sha256(archive);

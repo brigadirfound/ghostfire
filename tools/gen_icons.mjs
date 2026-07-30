@@ -43,6 +43,8 @@ const ICONS = [
   { id: 'defeat', prompt: `${STYLE}, a cracked shield broken in two along a jagged line` },
   { id: 'badge', prompt: `${STYLE}, an empty hexagonal frame with thick beveled border and hollow center, nothing inside` },
   { id: 'streak', prompt: `${STYLE}, a bold lightning bolt` },
+  // Валюта: та же монета вместо эмодзи 👻 в ценах, балансе и наградах.
+  { id: 'coin', prompt: `${STYLE}, a round coin with a small ghost face embossed in the center, thick rim` },
 ];
 
 function readLocalEnv() {

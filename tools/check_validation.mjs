@@ -123,8 +123,19 @@ for (const file of fs.readdirSync(new URL('../maps/', import.meta.url))) {
     CONFIG.yandexAppId = '550479';
     assert.equal(SharePlatform.getShareUrl('CODE'), 'https://yandex.ru/games/app/550479?payload=CODE');
     assert.equal(SharePlatform.getShareUrl(''), null);
+
+    // Релизная сборка не даёт ссылку на свой хостинг даже если SDK не поднялся:
+    // перенаправление трафика с площадки — прямой повод для отказа модерации.
+    SharePlatform.isYandex = false;
+    CONFIG.yandexBuild = true;
+    assert.equal(SharePlatform.getShareUrl('CODE'), 'https://yandex.ru/games/app/550479?payload=CODE');
+    CONFIG.yandexAppId = '';
+    assert.equal(SharePlatform.getShareUrl('CODE'), null);
+    CONFIG.yandexBuild = false;
+    assert.match(SharePlatform.getShareUrl('CODE'), /^https:\/\/brigadirfound\.github\.io/);
   } finally {
     CONFIG.yandexAppId = originalAppId;
+    CONFIG.yandexBuild = false;
     SharePlatform.isYandex = false;
   }
 }

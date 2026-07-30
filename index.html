@@ -125,6 +125,12 @@
   #scope-v { top: 12%; bottom: 12%; left: 50%; width: 1px; }
   /* Иконки интерфейса (assets/icons) — белые PNG с альфой, красим фильтром. */
   .icon { width: 26px; height: 26px; flex: 0 0 26px; object-fit: contain; }
+  /* Монета в тексте: подстраивается под размер строки, как эмодзи раньше. */
+  /* Монета белая, поэтому подкрашивается фильтром: так она читается монетой,
+     а не серым кружком, и остаётся одним файлом на все места. */
+  .coin { width: 1.25em; height: 1.25em; object-fit: contain; vertical-align: -0.24em; margin-left: .22em;
+    filter: brightness(1.05) sepia(1) saturate(5) hue-rotate(-12deg) drop-shadow(0 1px 1px #0008); }
+  .bigscore .coin { width: .62em; height: .62em; vertical-align: -0.02em; margin-right: .1em; }
   .btn .icon { filter: drop-shadow(0 2px 0 #0008); }
 
   #hp-bar { position: absolute; left: calc(20px + var(--safe-left)); bottom: calc(20px + var(--safe-bottom)); width: 220px; }

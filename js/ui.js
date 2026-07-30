@@ -20,6 +20,14 @@ const DEFAULT_SKIN_PREVIEW = Object.freeze({
 });
 const safeColor = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : fallback);
 
+/** Монета госткоинов вместо эмодзи: одна картинка на все места, где была 👻. */
+function coinIcon(cls = 'coin') {
+  const img = el('img', cls);
+  img.src = 'assets/icons/coin.png';
+  img.alt = '';
+  return img;
+}
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -388,8 +396,8 @@ export class UI {
     const wallet = this.a.getWallet();
     clear(s);
     s.append(el('h2', '', t('shop')));
-    const balance = el('div', 'bigscore', '👻 ');
-    balance.append(el('span', 'me', Math.max(0, Math.round(finiteNumber(wallet?.coins)))));
+    const balance = el('div', 'bigscore');
+    balance.append(coinIcon(), el('span', 'me', Math.max(0, Math.round(finiteNumber(wallet?.coins)))));
     s.append(balance);
     // Цена и наличие паков приходят только из SDK catalog.
     let packs = null;
@@ -442,7 +450,7 @@ export class UI {
       else if (owned) priceRow.append(el('span', 'skin-state', t('equip')));
       else {
         if (item.isCustom) priceRow.append(el('span', 'skin-lock', '🔒'));
-        priceRow.append(el('b', '', item.price), el('span', 'skin-coin', '👻'));
+        priceRow.append(el('b', '', item.price), coinIcon());
       }
 
       card.append(preview, el('div', 'skin-name', itemName), priceRow);
@@ -476,7 +484,7 @@ export class UI {
           if (!product || !Number.isInteger(grant) || grant <= 0 ||
               typeof product.price !== 'string' || !product.price.trim()) continue;
           available++;
-          const buy = this._btn(`+${grant} 👻 · ${product.price}`, 'small', async () => {
+          const buy = this._btn(`+${grant} · ${product.price}`, 'small', async () => {
             buy.disabled = true;
             await this.a.buyCoins(pack);
             const purchaseError = Platform.consumeLastError?.();
@@ -611,13 +619,15 @@ export class UI {
       }
       if (reward.firstWin === true) box.append(rewardRow('bonus', t('rewardFirstWin')));
       const total = Math.max(0, Math.round(finiteNumber(reward.total)));
-      box.append(rewardRow('total', t('rewardTotal'), `+${total} 👻`));
+      const totalRow = rewardRow('total', t('rewardTotal'), `+${total}`);
+      totalRow.lastChild.append(coinIcon());
+      box.append(totalRow);
       s.append(box);
       if (total > 0 && reward.doubled !== true) {
         const dbl = this._btn(t('rewardDouble') + ' 📺', 'small', async () => {
           if (await this.a.doubleReward()) {
             dbl.remove();
-            this.toast(`+${total} 👻`);
+            this.toast(`+${total}`, 'coin');
           }
         });
         s.append(dbl);
@@ -627,7 +637,7 @@ export class UI {
     const mine = this.a.getPlayerGhost();
     if (won && mine) {
       // главная кнопка виральной петли — вызов другу в один тап
-      row.append(this._btn(t('sendChallenge') + ' 👻', 'primary', () => this.shareChallenge(mine)));
+      row.append(this._btn(t('sendChallenge'), 'primary', () => this.shareChallenge(mine), 'ghost'));
       row.append(this._btn(t('playAgain'), '', () => this.a.startMatch(this.selectedMap, ghostEntry)));
       row.append(this._btn(t('ghostCodeBtn'), 'small', () => this.shareCodeOnly(mine)));
     } else {
@@ -672,7 +682,8 @@ export class UI {
     }
   }
 
-  toast(msg) {
+  /** @param icon — имя иконки из assets/icons, добавляется справа от текста. */
+  toast(msg, icon = null) {
     let tdiv = $('toast');
     if (!tdiv) {
       tdiv = el('div');
@@ -680,6 +691,7 @@ export class UI {
       document.body.append(tdiv);
     }
     tdiv.textContent = msg;
+    if (icon) tdiv.append(coinIcon());
     tdiv.classList.add('show');
     clearTimeout(this._toastT);
     this._toastT = setTimeout(() => tdiv.classList.remove('show'), 2200);

@@ -15,12 +15,13 @@
 | reload.png | b8a414d783e303e7… | 7 | — |
 | ghost.png | 732ccd30fc990c78… | 5 | — |
 | howto.png | 3df847a292f24d0c… | 6 | — |
-| skull.png | 5e86fa91551d0405… | 7 | 0115317e-e88a-4773-a8b5-bf4313374368 |
-| torso.png | 1e6b930badc3530f… | 7 | 11cb88f3-e6a8-4420-879a-a0dc837bbee3 |
-| victory.png | 135df5f0f6f18efc… | 14 | b674dab6-e604-494e-a916-8c39430b7cb1 |
-| defeat.png | 88ba76c51ee25a53… | 8 | 014b96ef-863b-4d0c-ad82-bedf5511355e |
-| badge.png | 272ec88471214158… | 11 | a082b39a-b12b-41c8-b445-34070ff939a8 |
-| streak.png | edc0efff2eb5e2af… | 4 | 64f41570-5f0b-45b6-9a9e-00236af0b6b7 |
+| skull.png | 5e86fa91551d0405… | 7 | — |
+| torso.png | 1e6b930badc3530f… | 7 | — |
+| victory.png | 135df5f0f6f18efc… | 14 | — |
+| defeat.png | 88ba76c51ee25a53… | 8 | — |
+| badge.png | 272ec88471214158… | 11 | — |
+| streak.png | edc0efff2eb5e2af… | 4 | — |
+| coin.png | 9bb4d4f7c56e54a4… | 14 | b53099cc-1c83-4f84-a08f-11ef0255ca0f |
 
 ## Промпты
 
@@ -118,4 +119,10 @@ flat vector game UI icon, single centered symbol, thick bold shapes, no gradient
 
 ```
 flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a bold lightning bolt
+```
+
+### coin.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a round coin with a small ghost face embossed in the center, thick rim
 ```

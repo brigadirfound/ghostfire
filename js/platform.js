@@ -296,10 +296,16 @@ export const Platform = {
     return initPromise;
   },
 
+  /**
+   * Ссылка для вызова друга. Внутри Яндекса (и в любой сборке, помеченной
+   * yandexBuild) допустима ровно одна ссылка — страница игры в каталоге с
+   * payload: друг открывает её, и код подставляется сам. Если ID каталога не
+   * заполнен или код длиннее лимита payload — ссылки нет вовсе, делимся кодом.
+   */
   getShareUrl(code) {
     if (typeof code !== 'string' || !code.length) return null;
     const encoded = encodeURIComponent(code);
-    if (this.isYandex) {
+    if (this.isYandex || CONFIG.yandexBuild) {
       // ID каталога — только цифры из URL страницы игры. Опечатка здесь дала бы
       // битую ссылку вызова, поэтому лучше молча уйти в шеринг кодом.
       const appId = String(CONFIG.yandexAppId ?? '');
