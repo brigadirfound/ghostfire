@@ -1,0 +1,37 @@
+{
+  "platform": "Yandex Games",
+  "assets": [
+    {
+      "file": "icon-512.png",
+      "width": 512,
+      "height": 512,
+      "format": "PNG",
+      "bytes": 261084,
+      "sha256": "e16d3e2b3a79c3a8fdfbc4bfaccd78595c539bcef6caca78ba0ede41a96b6e8c"
+    },
+    {
+      "file": "icon-maskable-512.png",
+      "width": 512,
+      "height": 512,
+      "format": "PNG",
+      "bytes": 229991,
+      "sha256": "2f08cf706bb63543b2f4e318aeecd47c896b21fcc76349c564aea708744b008c"
+    },
+    {
+      "file": "cover-800x470.png",
+      "width": 800,
+      "height": 470,
+      "format": "PNG",
+      "bytes": 542667,
+      "sha256": "4ed0b7c3256614a8b3364d64feebe57a0c93f16cdea84b13fa0b2d2366c86ca4"
+    },
+    {
+      "file": "hero-1560x520.png",
+      "width": 1560,
+      "height": 520,
+      "format": "PNG",
+      "bytes": 889558,
+      "sha256": "a6e5cb7fdafbb20dec8cabf390923c1fd745326e6a46f93f5985d7e9991da686"
+    }
+  ]
+}

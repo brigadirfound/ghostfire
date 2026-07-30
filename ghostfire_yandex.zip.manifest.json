@@ -1,0 +1,646 @@
+{
+  "schema": 1,
+  "product": "ghostfire",
+  "version": "0.1.0",
+  "commit": "1f938273c8e8f63cbe6f343c4d0b5720aa9d71f8",
+  "dirty": false,
+  "sourceDateEpoch": 1785426767,
+  "createdAt": "2026-07-30T15:52:47.000Z",
+  "files": [
+    {
+      "path": "assets/fonts/exo2-cyrillic-600.woff2",
+      "bytes": 7972,
+      "sha256": "d72828a4750f26f473cbe1c925c057bce2646608cb1067dd7cfc3867ff1d867d"
+    },
+    {
+      "path": "assets/fonts/exo2-cyrillic-800i.woff2",
+      "bytes": 9480,
+      "sha256": "a9fb4c639dd30711f64e4691367ca2875e8845b8fb46af808753539c8c408628"
+    },
+    {
+      "path": "assets/fonts/exo2-latin-600.woff2",
+      "bytes": 17264,
+      "sha256": "fd2112e53440975a4885179f3d09058787b97b711e7e141c55fcaecaf48fbcb6"
+    },
+    {
+      "path": "assets/fonts/exo2-latin-800i.woff2",
+      "bytes": 18256,
+      "sha256": "82306bad68848703afce2593b60ce1862148c700279045ac373753ea016ab0a1"
+    },
+    {
+      "path": "assets/fonts/OFL-Exo2.txt",
+      "bytes": 4489,
+      "sha256": "7644b74e07215f62af4ebbfcf2b0f06a428d70d32c41e751fba93763a683c3f5"
+    },
+    {
+      "path": "assets/fonts/OFL-RussoOne.txt",
+      "bytes": 4397,
+      "sha256": "e01a0e5a1112dec6cc8b84fa2ee80093125f152671bcd7c321058da3856d9909"
+    },
+    {
+      "path": "assets/fonts/russo-one-cyrillic.woff2",
+      "bytes": 4492,
+      "sha256": "ae0eadf1b084ac50848e104486c8e929b4b702d8103a1ee064aa3d223dca7ed5"
+    },
+    {
+      "path": "assets/fonts/russo-one-latin.woff2",
+      "bytes": 7344,
+      "sha256": "8a6b754cd3bc5ad2bf0d0308bbd9c1b7f6b4ecdd915982ffedf50ed18fed4a46"
+    },
+    {
+      "path": "assets/hud/ar.png",
+      "bytes": 4507,
+      "sha256": "3371ee4f711efde5ebc3760a5eeff5866ee764b601a205c0111aa95bfc850f62"
+    },
+    {
+      "path": "assets/hud/pistol.png",
+      "bytes": 2658,
+      "sha256": "c877131d7383831cb4da6aa108dbad87f1909a8917d01a22c834ca458950cb66"
+    },
+    {
+      "path": "assets/hud/railgun.png",
+      "bytes": 5820,
+      "sha256": "6d2187c25eebc1da55aa7d52537e37880f3465a7c2baff87184c4249178c0bfe"
+    },
+    {
+      "path": "assets/hud/shotgun.png",
+      "bytes": 6113,
+      "sha256": "da7f6b5a780a0883f92a0ade6d94ee54c55b1c4028c86141cb4e16c154c82716"
+    },
+    {
+      "path": "assets/hud/smg.png",
+      "bytes": 4198,
+      "sha256": "54eb287b5433c6daf49a3cfaff195b00f2a85680184b96e3dde60fe31024eb02"
+    },
+    {
+      "path": "assets/hud/sniper.png",
+      "bytes": 6501,
+      "sha256": "453085d5eb568f01dc6bbe07e888133e204a6cc45fb0a5b14820d716fd4f05e5"
+    },
+    {
+      "path": "assets/icons/ammo.png",
+      "bytes": 5980,
+      "sha256": "2749e6b145ce87eeacdb29c6352849cb5999c0787aad4b864adce98ad87cc99a"
+    },
+    {
+      "path": "assets/icons/badge.png",
+      "bytes": 11333,
+      "sha256": "272ec884712141581c4a5d4e1515f0ba7813da0eb911bbeb753d00da61222110"
+    },
+    {
+      "path": "assets/icons/code.png",
+      "bytes": 2265,
+      "sha256": "e87ec99393f4dc5a3a530fc4daa69d5d171ca9284b547145c8c23d6c0808ea7f"
+    },
+    {
+      "path": "assets/icons/coin.png",
+      "bytes": 14234,
+      "sha256": "9bb4d4f7c56e54a499b90d2aa4b0a6efba69dc57f1e78c40942d7d65445e5527"
+    },
+    {
+      "path": "assets/icons/defeat.png",
+      "bytes": 8635,
+      "sha256": "88ba76c51ee25a53edfb82985debd7d9e37c7d4d600acff6d6c25b9022db3b24"
+    },
+    {
+      "path": "assets/icons/editor.png",
+      "bytes": 10235,
+      "sha256": "f4c2565f861a31c13212ba1d87f5ab13e18073b739667e8aae137c34e617428d"
+    },
+    {
+      "path": "assets/icons/ghost.png",
+      "bytes": 5010,
+      "sha256": "732ccd30fc990c78233236cbcd6dac8122d4791f5528d585aaa25bbacf04d409"
+    },
+    {
+      "path": "assets/icons/heart.png",
+      "bytes": 2840,
+      "sha256": "06b2a4646a2f899de5186652a86576536ba8e7136fa2ad5d46ab6145a2b40e2a"
+    },
+    {
+      "path": "assets/icons/howto.png",
+      "bytes": 6427,
+      "sha256": "3df847a292f24d0c6eb36e97fc8cdfdb098e02761765c7a5cfd235ee7936429b"
+    },
+    {
+      "path": "assets/icons/play.png",
+      "bytes": 4026,
+      "sha256": "c36b02bcff6d3b8bc86068ddc122399b524618f195b15d1e3caf14908fecdb53"
+    },
+    {
+      "path": "assets/icons/PROVENANCE.md",
+      "bytes": 5944,
+      "sha256": "dcc8f4cfae9175b581a256f7753ce05dfdf123662c84172ae3f16cda3e55d799"
+    },
+    {
+      "path": "assets/icons/reload.png",
+      "bytes": 6750,
+      "sha256": "b8a414d783e303e753dc5c98c6b4c5d70ab9741d32b24d965a39340c5a7932a5"
+    },
+    {
+      "path": "assets/icons/settings.png",
+      "bytes": 10768,
+      "sha256": "3433cd865048159d37af08f2d35b9a08bbbede2f09d1788118bc8cf87a0b2972"
+    },
+    {
+      "path": "assets/icons/shop.png",
+      "bytes": 4261,
+      "sha256": "8455eca6d6904bb24dbd19224778d6b3e0b471459070c27540d99991347676e2"
+    },
+    {
+      "path": "assets/icons/skull.png",
+      "bytes": 7266,
+      "sha256": "5e86fa91551d04053b87557dfe7c0b0bf563a554b37a820c0309ddea82be56ad"
+    },
+    {
+      "path": "assets/icons/streak.png",
+      "bytes": 4266,
+      "sha256": "edc0efff2eb5e2af75ed8228369eefe88ab3b3ba8aaf260c947a88f19dab561c"
+    },
+    {
+      "path": "assets/icons/torso.png",
+      "bytes": 7478,
+      "sha256": "1e6b930badc3530f661bc12cfcadac9ff644a790b1208dcb57174dedc423ddef"
+    },
+    {
+      "path": "assets/icons/victory.png",
+      "bytes": 14696,
+      "sha256": "135df5f0f6f18efced9b02f8029d92475fb812763026779f2a2991e2bfcbc785"
+    },
+    {
+      "path": "assets/menu_bg.jpg",
+      "bytes": 168019,
+      "sha256": "fcd702ca3090e1b352c0fdbd8768a2ae5208096269821d3c5c56a918705cf183"
+    },
+    {
+      "path": "assets/music/arena01.mp3",
+      "bytes": 720765,
+      "sha256": "9670f75d002bf1a716957f0e3b15005c78a52b4a534928e2328cb5e66d0907ff"
+    },
+    {
+      "path": "assets/music/arena02.mp3",
+      "bytes": 720765,
+      "sha256": "14b06ef85cd5015374e50728741d92e6346d87e16c06949107ab4604f546266b"
+    },
+    {
+      "path": "assets/music/arena03.mp3",
+      "bytes": 720765,
+      "sha256": "f6eadb1ddbfcac028a702e4ff9438764181b8c481d02a181052ada1caef97280"
+    },
+    {
+      "path": "assets/music/arena04.mp3",
+      "bytes": 720765,
+      "sha256": "0e5629a1a41277cce886ca2ec556ba3cbf120adb9c864861c9980beeb39eb345"
+    },
+    {
+      "path": "assets/music/arena05.mp3",
+      "bytes": 720765,
+      "sha256": "7d64b03dd295b09fe55a1fc30dd853162204254f848c34f7c6970cf11926adf7"
+    },
+    {
+      "path": "assets/music/menu.mp3",
+      "bytes": 720765,
+      "sha256": "d9e21be848c37154fe1e7189124b7e2f1809942de3d8d650441f88f51cad3f0a"
+    },
+    {
+      "path": "assets/music/PROVENANCE.md",
+      "bytes": 2677,
+      "sha256": "e47d01d049a00bfb1b7aca28d964b28bff90a1ac5a02fba30dd1facb2f6c7dec"
+    },
+    {
+      "path": "assets/skins/crimson.jpg",
+      "bytes": 14926,
+      "sha256": "28faafd8173b19375ebd059d7f98dc84d902e6553201310bca0c2c8bc1ada39e"
+    },
+    {
+      "path": "assets/skins/custom.jpg",
+      "bytes": 52067,
+      "sha256": "e70c841877a802261360aa9e45ff41754e28fa96171e8b8f1635fb4d796d75e0"
+    },
+    {
+      "path": "assets/skins/default.jpg",
+      "bytes": 16379,
+      "sha256": "1785a4c4d02ad0d2477cb6e97e58ad7ded518eaeb289ff173988bd1fb6ac290b"
+    },
+    {
+      "path": "assets/skins/forest.jpg",
+      "bytes": 14141,
+      "sha256": "1332454031c4fb8f925dd918a0c6027c037553b9da1691cba3646580ed1ab6a3"
+    },
+    {
+      "path": "assets/skins/gold.jpg",
+      "bytes": 25050,
+      "sha256": "c350552245769037f8363837a38bb9a820be2c39df15b7809c9fdff83fd45cac"
+    },
+    {
+      "path": "assets/skins/neon.jpg",
+      "bytes": 24230,
+      "sha256": "c38580137a4910c5bed9d5f7c096c581ac17bacc9dbd3e9fb535dbd531516ce2"
+    },
+    {
+      "path": "assets/skins/PROVENANCE.md",
+      "bytes": 4104,
+      "sha256": "2d1b521223ab91a0a740b5d0a36c87292e08a5a91073a8c83ad8b421af8d262d"
+    },
+    {
+      "path": "assets/skins/void.jpg",
+      "bytes": 14818,
+      "sha256": "788a90dac717cea271374f551bca44239f61185b2b8bcbc6950199c65ed906b4"
+    },
+    {
+      "path": "assets/sky/arena01.jpg",
+      "bytes": 44045,
+      "sha256": "e01dbea27f1d0cd1cbc39f06004d7ecd49b5fd8484ca19340167a9463cefd2ee"
+    },
+    {
+      "path": "assets/sky/arena02.jpg",
+      "bytes": 97034,
+      "sha256": "251c05639672581ed1e1e1b1163bf961828829b5c0bdf6de6cd25849b8d30e6e"
+    },
+    {
+      "path": "assets/sky/arena03.jpg",
+      "bytes": 55569,
+      "sha256": "fa4175882f6c89addab2e7084a975dca7b7f63fe6d105622dcf04147049aa8fb"
+    },
+    {
+      "path": "assets/sky/arena04.jpg",
+      "bytes": 53659,
+      "sha256": "53fc468b013b61c8bd779d00ee2dfd9e403f42ee36dd7937b03f0bccbf5acc50"
+    },
+    {
+      "path": "assets/sky/arena05.jpg",
+      "bytes": 97716,
+      "sha256": "d571608ae1b8fdbc9944a96f4312c8afa379c6d5849130122ce3d43679abfd46"
+    },
+    {
+      "path": "assets/sky/PROVENANCE.md",
+      "bytes": 2049,
+      "sha256": "daa16226024ad48f79b76da456b19118c2d488b8ac28d32acd88321508f3004e"
+    },
+    {
+      "path": "assets/sky/skybox.jpg",
+      "bytes": 81294,
+      "sha256": "1dd1f5a6aa07aa315943b819f8e4c66478eedafaf3ba434efdb14d7e9778aa9e"
+    },
+    {
+      "path": "assets/weapons/ar.gltf",
+      "bytes": 89675,
+      "sha256": "76551c3e41095640e52508e8f513411ae4db30b3f6a7ce35b8e046b4b0ce57d5"
+    },
+    {
+      "path": "assets/weapons/pistol.gltf",
+      "bytes": 96543,
+      "sha256": "3f8578a7de94c9c7ec0d633b667891f399f60bfe609340b302da7f4de41b3d9b"
+    },
+    {
+      "path": "assets/weapons/railgun.gltf",
+      "bytes": 98405,
+      "sha256": "dfd7330b3cde17da5a876d4b5cc981b0f1a7ae4b6ef88ee11a82e843f74d987a"
+    },
+    {
+      "path": "assets/weapons/shotgun.gltf",
+      "bytes": 115686,
+      "sha256": "d04f68c677fc4d1560efffbdb90a1d3ceb2b0ba7a4c8301710e6bb8999c3d75d"
+    },
+    {
+      "path": "assets/weapons/smg.gltf",
+      "bytes": 122986,
+      "sha256": "811410113e8ba6b86da40a4e9bb12c84d5b7d6a855fe1d735d365aba23a2ef3e"
+    },
+    {
+      "path": "assets/weapons/sniper.gltf",
+      "bytes": 168475,
+      "sha256": "6f4eff03141d3ea310592105e4f16144bb2f8e542a0d3b00b19814c04b502fa5"
+    },
+    {
+      "path": "editor.html",
+      "bytes": 11135,
+      "sha256": "50f97de0fd4f7ff6db6581ac9dbb2c0bd2ce6e3e915d2c81a021276eb74f8bbb"
+    },
+    {
+      "path": "ghosts/arena01_d1.json",
+      "bytes": 25435,
+      "sha256": "30e4bc824ba3b968d79df5abac81c4042b96fda993efaaf0bc4bdbfb4a66d5d0"
+    },
+    {
+      "path": "ghosts/arena01_d2.json",
+      "bytes": 25493,
+      "sha256": "59bac998c409be0a22253457f14fbd8e33d269d2ff30e233ea358926528f04d8"
+    },
+    {
+      "path": "ghosts/arena01_d3.json",
+      "bytes": 25551,
+      "sha256": "9f380f55a4eb6505a0d7e0ee0f2b07cbe712f29f4481f711a36bf777bd411ef7"
+    },
+    {
+      "path": "ghosts/arena01_d4.json",
+      "bytes": 25637,
+      "sha256": "3fc418868321723b2fca980443154de5e0b1d10f5dbcfcd27ba5d51bf67b654a"
+    },
+    {
+      "path": "ghosts/arena01_d5.json",
+      "bytes": 25749,
+      "sha256": "348600bc880b31ae26d444a8f22a381a31e08d33bd1833c6da217ccfc2fb7107"
+    },
+    {
+      "path": "ghosts/arena02_d1.json",
+      "bytes": 25419,
+      "sha256": "09864b355a9af520c44b50c3fa505b298b78d4c66426446e792f4d2eb52d9164"
+    },
+    {
+      "path": "ghosts/arena02_d2.json",
+      "bytes": 25477,
+      "sha256": "3e9fd6a1e65a149567032824ba39b1951756a1221569601227eeeef2e7fdc986"
+    },
+    {
+      "path": "ghosts/arena02_d3.json",
+      "bytes": 25559,
+      "sha256": "90516fbe0e7b3f760e995dbc2a4ba779ad61a96779b3c073f27e26f0a933e659"
+    },
+    {
+      "path": "ghosts/arena02_d4.json",
+      "bytes": 25653,
+      "sha256": "26181dee67a23e1506e22aecdd1c6614b3c8837d10c3d07782431efa7e0c76bc"
+    },
+    {
+      "path": "ghosts/arena02_d5.json",
+      "bytes": 25717,
+      "sha256": "448ca1ae6b224a74d64b1844348e6a5849339932d77d06ff7b6f8e852a0dac5c"
+    },
+    {
+      "path": "ghosts/arena03_d1.json",
+      "bytes": 25427,
+      "sha256": "30827a0d29940fb3950ab2268a32d828e62a61de26d5ea8809bb9a7cd138c5c9"
+    },
+    {
+      "path": "ghosts/arena03_d2.json",
+      "bytes": 25493,
+      "sha256": "f896ce53ae0123ea6e56e3cdf60daa1df3a63c9b70601451721f263e8dc11806"
+    },
+    {
+      "path": "ghosts/arena03_d3.json",
+      "bytes": 25551,
+      "sha256": "2c3d3e6c2e8f2e54b0a11feae8640f56fadd8acdf47f07fa53fa06f6868654ae"
+    },
+    {
+      "path": "ghosts/arena03_d4.json",
+      "bytes": 25645,
+      "sha256": "17ef49cfc43a4620da575633df5aae7919739583f51f0a782bf21b452e42b5e3"
+    },
+    {
+      "path": "ghosts/arena03_d5.json",
+      "bytes": 25733,
+      "sha256": "8e867c0b9505a46b64550458c55cbf799eb03fa8c513ec2128d0d869ea5f979c"
+    },
+    {
+      "path": "ghosts/arena04_d1.json",
+      "bytes": 25435,
+      "sha256": "ad079ef8bfd29f407eaf524370219574054fb1ce04a89acb41fe761b9ee187fd"
+    },
+    {
+      "path": "ghosts/arena04_d2.json",
+      "bytes": 25493,
+      "sha256": "ec69ae410ae6f3701f57c7abcc15b964264f3dc3e1fca3a7adcfbfd36888d6f4"
+    },
+    {
+      "path": "ghosts/arena04_d3.json",
+      "bytes": 25583,
+      "sha256": "7eecb96ba6859d781ad3a2aa68bcc384361f2f1feac63c2d49ae2868b973f1ad"
+    },
+    {
+      "path": "ghosts/arena04_d4.json",
+      "bytes": 25645,
+      "sha256": "039204baf8219ffd461347d327178d3061337a31239394331a3567fd1a6e37c1"
+    },
+    {
+      "path": "ghosts/arena04_d5.json",
+      "bytes": 25725,
+      "sha256": "b0a300b32890dcaee981b6ff6499a980b4b81b0266cf3bb714e9d4e18e31d55c"
+    },
+    {
+      "path": "ghosts/arena05_d1.json",
+      "bytes": 25435,
+      "sha256": "a6c8155184e4fde06422b13a55c7e4da603e2eced9998992ff0a0157c0a16bbf"
+    },
+    {
+      "path": "ghosts/arena05_d2.json",
+      "bytes": 25501,
+      "sha256": "7cee0d000b9da9b167aa1dd51d58c75e4ad7dac88e72d23c684505a831300de5"
+    },
+    {
+      "path": "ghosts/arena05_d3.json",
+      "bytes": 25559,
+      "sha256": "bc159ee6cae26f63e1e8ca52e1d90b9611c71ca4f1b5b43c667a5cf86a02a87f"
+    },
+    {
+      "path": "ghosts/arena05_d4.json",
+      "bytes": 25629,
+      "sha256": "f7e6260ff52c333ef9910f26e29c29a0866af874c313b73172ada5ee84841e11"
+    },
+    {
+      "path": "ghosts/arena05_d5.json",
+      "bytes": 25725,
+      "sha256": "73a574523927ef1bfc5abf41ee2cdc51f79a3223cb53994c7166d86a4b2df280"
+    },
+    {
+      "path": "index.html",
+      "bytes": 25063,
+      "sha256": "14e6b93ea3af8c51f3769f8b90f23690549b80f7c1e3f2dd86c7fbcbffa0cbf8"
+    },
+    {
+      "path": "js/audio.js",
+      "bytes": 9266,
+      "sha256": "1960898c7424c190c7f8870d62595607e226e068e4c05c360da6157d0c5dfe69"
+    },
+    {
+      "path": "js/botgen.js",
+      "bytes": 5322,
+      "sha256": "e1f2a3659f7519e933644c07a1b095893ff596101528eb6e673ffbc3d26d7687"
+    },
+    {
+      "path": "js/config.js",
+      "bytes": 2253,
+      "sha256": "515806504e110e9ca9da1ab2ba1928fa539002cf26951e7878e250bcb5dc6464"
+    },
+    {
+      "path": "js/economy.js",
+      "bytes": 7213,
+      "sha256": "77c76d97c790119d5ecd00becf59b7722b2aef3d224a48d8eb800f03760fad1d"
+    },
+    {
+      "path": "js/editor.js",
+      "bytes": 23983,
+      "sha256": "ad1c0f6554b45416b74ec41d13ca437cb8f4a67ddd9dbe5425a338a946a46a34"
+    },
+    {
+      "path": "js/face.js",
+      "bytes": 7224,
+      "sha256": "5477461a764b2bf32dc8377245f0dea63502427e9541f3239bb240cc6d2ee6cf"
+    },
+    {
+      "path": "js/game.js",
+      "bytes": 43330,
+      "sha256": "7508f27763ca0d7bad003641ac51e6feb82fc6866cdd1235c9ecd43704e22bad"
+    },
+    {
+      "path": "js/ghost.js",
+      "bytes": 11794,
+      "sha256": "188eb2bd78b29f1130175ae7f4f9d35f828c7097f910e846248f8efcb77cabd3"
+    },
+    {
+      "path": "js/hands.js",
+      "bytes": 2633,
+      "sha256": "2a06a8305338aced98a6cd5670b31ffe72853b8f4ede2024d961ccbc9eb22b67"
+    },
+    {
+      "path": "js/i18n.js",
+      "bytes": 26345,
+      "sha256": "881d28a52c340383063ff2ecaf2397797cdbb6870ae5a1e6e1a10caf1cd42a74"
+    },
+    {
+      "path": "js/lz-bounded.js",
+      "bytes": 3152,
+      "sha256": "925c221ca98eb0ba4ad4fb66abd3f244f0bdffe26bfbe45ec7e943ff553b7753"
+    },
+    {
+      "path": "js/map.js",
+      "bytes": 8655,
+      "sha256": "af192f88f823b96b3c5b6db2db7d28ccc1346ac2082e3cc2d3929d1feff6f1fc"
+    },
+    {
+      "path": "js/mappreview.js",
+      "bytes": 2234,
+      "sha256": "a9b3a2e039595d4f3f24f2ffe9066fbc6a871febc85702c96cb3350e6c9ec7c4"
+    },
+    {
+      "path": "js/mobile.js",
+      "bytes": 13423,
+      "sha256": "c73340b9908a7d1de41972d3fde39dd276ff8e920bf2c958090390f6c0526a59"
+    },
+    {
+      "path": "js/music.js",
+      "bytes": 4303,
+      "sha256": "996ee98558543a28b3ded4e02029dec742081afd08882995803c398aaffc3e14"
+    },
+    {
+      "path": "js/platform.js",
+      "bytes": 21891,
+      "sha256": "3adefebcbe83dd32aa09f326c1b7e22295af7083b3fa64515ce5342d594a3b6e"
+    },
+    {
+      "path": "js/player.js",
+      "bytes": 18288,
+      "sha256": "00fd7ccea5c85f7c3bc31f614d97d1dc2f7f1c97b90604d11a7f9aa9cc41addf"
+    },
+    {
+      "path": "js/replay.js",
+      "bytes": 10281,
+      "sha256": "74e65665d309b227ae6ed59bbe791c9764ecfaa49c8a19549233cdf227c1c33c"
+    },
+    {
+      "path": "js/skin-editor.js",
+      "bytes": 21716,
+      "sha256": "be0e65cf8bab7146425ec602a822fcf58054a76c864d59f4c54a32adc49ea1ce"
+    },
+    {
+      "path": "js/textures.js",
+      "bytes": 7651,
+      "sha256": "e253b5b03c6bfed8330ebad8ee794faa32f1c703aea52ba5d5c4ac57775183f8"
+    },
+    {
+      "path": "js/ui.js",
+      "bytes": 36022,
+      "sha256": "1ac3f3b7e5fc6a2223eef31a761f96bac4db24d56663ba62e0d7985fd2eb5d1c"
+    },
+    {
+      "path": "js/validation.js",
+      "bytes": 13273,
+      "sha256": "f8eb0f3368b360bd70203c84c7660af26b5164ebbf3b26b004e48881d9d95bfd"
+    },
+    {
+      "path": "js/weapons.js",
+      "bytes": 18694,
+      "sha256": "d779978c8267c16b11eac4f70b1c523b47ba9ba2f1f49393c2fe5681cfcbe388"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 642,
+      "sha256": "f77d7cc9d8292fe6b9318b591b8c864908f4a4d8bfb2d1889fd5248ef40487b7"
+    },
+    {
+      "path": "maps/arena01.json",
+      "bytes": 31642,
+      "sha256": "d74aba03704596ae77ba659ecddaf7ca1a05a253fad859db504ead184bc50455"
+    },
+    {
+      "path": "maps/arena02.json",
+      "bytes": 60579,
+      "sha256": "5d4c55149d4848950e30c50abc21a1452144392f7543634009d5eeb11447ae84"
+    },
+    {
+      "path": "maps/arena03.json",
+      "bytes": 16488,
+      "sha256": "495249459859420792cf41155a4eaecba3145b3f8119733d0abc6fee6d0e9992"
+    },
+    {
+      "path": "maps/arena04.json",
+      "bytes": 18057,
+      "sha256": "da9e21292de1f7893a3cfdb7284e408e97b3543c141caf0ab1ca89861f112e90"
+    },
+    {
+      "path": "maps/arena05.json",
+      "bytes": 46916,
+      "sha256": "65409a58a87845fc772c77377830d5ee6ef52010885de551a8e14c51e3a20919"
+    },
+    {
+      "path": "NOTICE.md",
+      "bytes": 6789,
+      "sha256": "256c9b2a68e4d7ecc0d5fb9098be9be11f5682bba9af4663907c231a996db416"
+    },
+    {
+      "path": "release-metadata.json",
+      "bytes": 638,
+      "sha256": "a30e5e61761bd2c2bb2b18e38d5fd85c3adb350345ef26e97a5239d6ff5aa492"
+    },
+    {
+      "path": "skins/default.json",
+      "bytes": 1188,
+      "sha256": "d49ffdbd49a7e4c488d3833419d22a02b4c2d4e5a35fffbaf52d39e4f044c90c"
+    },
+    {
+      "path": "skins/shop.json",
+      "bytes": 4674,
+      "sha256": "acafaa86aab2d8b8d0f848762d7cf725a2a7fd332d80c7666a38ab0154dbbc85"
+    },
+    {
+      "path": "vendor/addons/controls/OrbitControls.js",
+      "bytes": 32250,
+      "sha256": "f260591ef315aa04888152e7f121865214e33fb54727145cf4e4445058db1297"
+    },
+    {
+      "path": "vendor/addons/environments/RoomEnvironment.js",
+      "bytes": 3735,
+      "sha256": "e21f41b7ef2016f2984a5d27850b42dffa797a6a194a138e288b06576d765a7b"
+    },
+    {
+      "path": "vendor/addons/loaders/GLTFLoader.js",
+      "bytes": 109781,
+      "sha256": "4e7c3ad7d8fb4c388169e0692b0782e427fba5f54ff424436f6fe0ccefdbbeef"
+    },
+    {
+      "path": "vendor/addons/utils/BufferGeometryUtils.js",
+      "bytes": 31554,
+      "sha256": "b0c64fe6f3b9907262921b73fafc4ade874c07ba6b4876e164c87a830c2c2113"
+    },
+    {
+      "path": "vendor/lz-string.js",
+      "bytes": 5163,
+      "sha256": "a241a07a2d15ebf1d9aa7d261ab9655727cce84c7d162b1a4c3f6babc6d9fbcf"
+    },
+    {
+      "path": "vendor/three.module.js",
+      "bytes": 1274691,
+      "sha256": "a97ec6852978949b7941c070b81292b842473a37549222353fa0a70c18d7285a"
+    }
+  ]
+}

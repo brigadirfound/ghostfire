@@ -143,6 +143,10 @@ test('runtime whitelist excludes tools and includes referenced arena skies', () 
   assert.equal(isRuntimePath('js/game.js'), true);
   assert.equal(isRuntimePath('tools/pack_release.mjs'), false);
   assert.equal(isRuntimePath('assets/sky/arena01.jpg'), true);
+  // Витрина живёт в assets/, но в игру не едет: это десятки мегабайт скриншотов
+  // и мастеров промо, которые игроку не нужны.
+  assert.equal(isRuntimePath('assets/store/visuals/icon-512.png'), false);
+  assert.equal(isRuntimePath('assets/store/screenshots/ru/desktop/shot_01.jpg'), false);
   assert.equal(isRuntimePath('assets/sky/PROVENANCE.md'), true);
   const files = collectRuntimeFiles(root);
   assert.ok(files.includes('index.html'));

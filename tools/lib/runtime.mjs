@@ -20,9 +20,14 @@ export const RUNTIME_DIRECTORIES = ['js', 'maps', 'skins', 'ghosts', 'vendor', '
 export const toPosix = (value) => value.split(sep).join('/');
 export const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex');
 
+// Материалы витрины лежат внутри assets/, но игре не нужны: скриншоты, мастера
+// промо и тексты карточки добавили бы в архив десятки мегабайт.
+const NOT_SHIPPED = ['assets/store/'];
+
 export function isRuntimePath(relativePath) {
   const path = relativePath.replaceAll('\\', '/');
   if (!path || path.startsWith('/') || path.includes('/../') || path.startsWith('../')) return false;
+  if (NOT_SHIPPED.some((prefix) => path.startsWith(prefix))) return false;
   if (RUNTIME_ROOT_FILES.includes(path)) return true;
   return RUNTIME_DIRECTORIES.some((directory) => path.startsWith(`${directory}/`));
 }
