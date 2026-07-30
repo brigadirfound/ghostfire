@@ -2,6 +2,7 @@
 // Пишет тот же формат, что skins/default.json. Задел под донат-магазин.
 import * as THREE from 'three';
 import { buildWeaponModel } from './weapons.js';
+import { tilePreviewURL } from './textures.js';
 import {
   ALLOWED_IMAGE_TYPES,
   ART_SIZE,
@@ -157,6 +158,69 @@ function loadImage(file) {
   });
 }
 
+/** Вертикальный градиент вместо ровной заливки за спиной персонажа. */
+function buildStageSky() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 4; canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+  gradient.addColorStop(0, '#151c2e');
+  gradient.addColorStop(0.6, '#2a3550');
+  gradient.addColorStop(1, '#4a5a76');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 4, 256);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function stageTexture(name, color, repeat) {
+  const texture = new THREE.TextureLoader().load(tilePreviewURL(name, color, 64));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.magFilter = THREE.NearestFilter;
+  texture.repeat.set(repeat, repeat);
+  return texture;
+}
+
+/** Подиум и кольцо блоков: персонажу нужна сцена, а не две заливки. */
+function buildSkinStage() {
+  const group = new THREE.Group();
+  const podium = new THREE.Mesh(
+    new THREE.BoxGeometry(5.2, 0.4, 5.2),
+    new THREE.MeshLambertMaterial({ map: stageTexture('stone', '#6a7484', 3) }),
+  );
+  podium.position.y = -0.2;
+  group.add(podium);
+
+  const rim = new THREE.Mesh(
+    new THREE.BoxGeometry(6.4, 0.24, 6.4),
+    new THREE.MeshLambertMaterial({ map: stageTexture('metal', '#3a4553', 4) }),
+  );
+  rim.position.y = -0.42;
+  group.add(rim);
+
+  const ground = new THREE.Mesh(
+    new THREE.BoxGeometry(60, 0.5, 60),
+    new THREE.MeshLambertMaterial({ map: stageTexture('grass_dirt', '#3f6b2e', 30) }),
+  );
+  ground.position.y = -0.75;
+  group.add(ground);
+
+  // Кольцо блоков разной высоты — глубина кадра при вращении превью.
+  const pillarMaterial = new THREE.MeshLambertMaterial({ map: stageTexture('crate', '#8a6a45', 1) });
+  const pillarGeometry = new THREE.BoxGeometry(1, 1, 1);
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2;
+    const height = 0.6 + ((i * 7) % 5) * 0.45;   // без Math.random: вид стабилен
+    const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+    pillar.scale.set(0.9, height, 0.9);
+    pillar.position.set(Math.cos(angle) * 5.6, height / 2 - 0.5, Math.sin(angle) * 5.6);
+    group.add(pillar);
+  }
+  return group;
+}
+
 /** Инициализирует редактор и возвращает контроллер жизненного цикла. */
 export async function initSkinEditor(status) {
   const canvas = document.getElementById('skin-canvas');
@@ -172,12 +236,13 @@ export async function initSkinEditor(status) {
   const sun = new THREE.DirectionalLight('#fff4d6', 1.5);
   sun.position.set(3, 6, 4);
   scene.add(sun);
-  const floor = new THREE.Mesh(
-    new THREE.BoxGeometry(6, 0.2, 6),
-    new THREE.MeshLambertMaterial({ color: '#7ec850' }),
-  );
-  floor.position.y = -0.1;
-  scene.add(floor);
+  // Раньше персонаж крутился между серым фоном и зелёной плитой, а половина
+  // пушек тонула в этой плите. Теперь это блочная витрина: подиум, кольцо
+  // блоков вокруг и градиентное небо — те же тайлы, что в самой игре.
+  const stage = buildSkinStage();
+  scene.add(stage);
+  scene.background = buildStageSky();
+  scene.fog = new THREE.Fog('#20283a', 14, 30);
 
   const defaultResponse = await fetch('skins/default.json');
   if (!defaultResponse.ok) throw new Error(`default skin: HTTP ${defaultResponse.status}`);
@@ -253,13 +318,15 @@ export async function initSkinEditor(status) {
     part(0.22, 0.6, 0.22, body.legs, -0.16, 0.3, 0);
     part(0.22, 0.6, 0.22, body.legs, 0.16, 0.3, 0);
 
+    // Витрина: пушки стоят по дуге на уровне пояса и смотрят наружу. Сетка
+    // 3×2 уводила нижний ряд под пол.
     [0, 1, 2, 3, 4, 5].forEach((id) => {
       const weapon = buildWeaponModel(id, skin);
-      weapon.scale.setScalar(1.05);
-      const column = id % 3;
-      const row = Math.floor(id / 3);
-      weapon.position.set(-1.6 + column * 1.6, 0.45 - row * 0.55, 1.2 + row * 0.9);
-      weapon.rotation.y = -0.5;
+      weapon.scale.setScalar(1);
+      const angle = -Math.PI * 0.62 + (id / 5) * Math.PI * 1.24;
+      const radius = 2.05;
+      weapon.position.set(Math.sin(angle) * radius, 1.02, Math.cos(angle) * radius);
+      weapon.rotation.y = angle + Math.PI / 2;
       preview.add(weapon);
     });
     const tracer = (color, y) => {
@@ -498,7 +565,7 @@ export async function initSkinEditor(status) {
       retire(preview);
       preview = null;
       drainRetired(true);
-      disposeObject(floor, disposedResources);
+      disposeObject(stage, disposedResources);
       renderer.dispose();
       renderer.forceContextLoss?.();
     },

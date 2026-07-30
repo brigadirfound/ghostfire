@@ -142,8 +142,8 @@ test('audio stopAll cancels active sources without replacing the context', () =>
 test('runtime whitelist excludes tools and includes referenced arena skies', () => {
   assert.equal(isRuntimePath('js/game.js'), true);
   assert.equal(isRuntimePath('tools/pack_release.mjs'), false);
-  assert.equal(isRuntimePath('assets/skybox_candidates/candidate_1.jpg'), true);
-  assert.equal(isRuntimePath('assets/skybox_candidates/PROVENANCE.md'), true);
+  assert.equal(isRuntimePath('assets/sky/arena01.jpg'), true);
+  assert.equal(isRuntimePath('assets/sky/PROVENANCE.md'), true);
   const files = collectRuntimeFiles(root);
   assert.ok(files.includes('index.html'));
   assert.ok(files.includes('LICENSE'));
@@ -181,7 +181,7 @@ test('every weapon carries a magazine, reload time and a left-hand pose', () => 
     // Пушка в кадре — от пистолета до снайперки. Выход за рамки означает
     // опечатку в длине: модель либо займёт пол-экрана, либо потеряется.
     const viewLength = Number(view[1]);
-    assert.ok(viewLength >= 0.3 && viewLength <= 1, `${key}: длина в кадре ${viewLength} м вне разумного`);
+    assert.ok(viewLength >= 0.24 && viewLength <= 1, `${key}: длина в кадре ${viewLength} м вне разумного`);
     // Оптика только у снайперки: временная отладочная выдача её другой пушке
     // не должна уехать в релиз.
     const zoom = field(row, 'zoomFov');
@@ -211,6 +211,35 @@ test('every arena has its own music track and none of them is oversized', () => 
   const provenance = readFileSync(new URL('../assets/music/PROVENANCE.md', import.meta.url), 'utf8');
   for (const text of [generator, provenance]) assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}/);
   assert.match(generator, /process\.env\.SUNO_API_KEY/);
+});
+
+test('every map points at a real 2:1 panorama', () => {
+  const maps = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
+  for (const id of [...maps, 'skybox']) {
+    const file = maps.includes(id) ? `../assets/sky/${id}.jpg` : '../assets/sky/skybox.jpg';
+    const bytes = readFileSync(new URL(file, import.meta.url));
+    assert.ok(bytes.length > 20_000 && bytes.length < 400_000, `${id}: ${bytes.length} Б`);
+    // Размеры лежат в SOF0 JPEG: панорама обязана быть ровно 2:1, иначе
+    // купол получит шов и «воронку» у полюсов.
+    let offset = 2, size = null;
+    while (offset < bytes.length - 9) {
+      if (bytes[offset] !== 0xff) { offset++; continue; }
+      const marker = bytes[offset + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        size = { h: bytes.readUInt16BE(offset + 5), w: bytes.readUInt16BE(offset + 7) };
+        break;
+      }
+      offset += 2 + bytes.readUInt16BE(offset + 2);
+    }
+    assert.ok(size, `${id}: не разобран размер jpeg`);
+    assert.equal(size.w, size.h * 2, `${id}: ${size.w}×${size.h} — не 2:1`);
+  }
+  for (const id of maps) {
+    const map = JSON.parse(readFileSync(new URL(`../maps/${id}.json`, import.meta.url), 'utf8'));
+    assert.equal(map.skybox, `assets/sky/${id}.jpg`, `${id}: карта смотрит на ${map.skybox}`);
+  }
+  const game = readFileSync(new URL('../js/game.js', import.meta.url), 'utf8');
+  assert.match(game, /const isEquirect = Math\.abs\(img\.width \/ img\.height - 2\)/);
 });
 
 test('tracers start at the muzzle and editor drops pickups above the block', () => {

@@ -73,17 +73,15 @@ the repository; no additional authorship or chain-of-custody claim is made.
 
 ## Generated and other visual assets
 
-The six current sky panoramas and their processing workflow are documented in
-`assets/skybox_candidates/PROVENANCE.md`. That document records generation
-with the Codex built-in image generation tool on 2026-07-29, the shared prompt,
-scene variants, and post-processing. Despite their historical `candidate_*`
-filenames, the five JPEGs are now referenced by the five built-in maps and are
-therefore runtime files. The provenance document is shipped beside them.
+Sky panoramas in `assets/sky/` are drawn by `tools/gen_skydome.mjs` and contain
+no third-party source material. The earlier Visionary-generated backdrops were
+removed together with their tooling: they were ordinary wide frames rather than
+sphere unwraps, and produced a visible seam on the dome.
 
-`tools/gen_skybox.mjs` is an optional, separate workflow for future Visionary
-API generations. It writes hashes and generation metadata when run. The mere
-presence of a generated file or provenance record does not itself establish a
-copyright license.
+Interface icons (`assets/icons/`) and shop skin cards (`assets/skins/`) are
+generated through the Visionary API; each directory carries a PROVENANCE.md with
+prompts, request ids and hashes. The mere presence of a generated file or a
+provenance record does not itself establish a copyright license.
 
 No embedded provenance record was found for `assets/menu_bg.jpg` or for any
 other raster asset not covered above. Their redistribution rights should be
@@ -118,3 +116,9 @@ Suno API моделью `suno-v5-5` инструментом `tools/gen_music.mj
 `assets/hud/*.png` — силуэты пушек для HUD, отрендерены из тех же GLTF-моделей
 (Quaternius, CC0), что игрок держит в руках; генератор — `tools/viewmodel_bench.html`
 в режиме `?mode=icon`. Отдельной лицензии не требуют, наследуют CC0 моделей.
+
+## Небо
+
+`assets/sky/*.jpg` — панорамы построены кодом (`tools/gen_skydome.mjs`),
+внешних исходников не содержат. Прежние фоны, сгенерированные через Visionary,
+из репозитория удалены: они не были развёртками сферы и давали шов на куполе.

@@ -29,9 +29,10 @@ scene.background = new THREE.Color('#2f2e5c'); // фолбэк, пока гру�
 scene.fog = new THREE.Fog('#c9955f', 40, 90);  // тёплая дымка под закатное небо
 
 // скайбокс: цельная СФЕРА-купол вокруг игрока (следует за камерой в tick).
-// Исходник — широкий кадр города (не 360°-панорама), поэтому на сферу его
-// натягиваем не equirect-маппингом (это давало "tiny planet"), а собираем
-// честную equirect-развёртку на canvas сами:
+// assets/sky/*.jpg — честные equirect-панорамы 2:1 (tools/gen_skydome.mjs),
+// они натягиваются на сферу как есть: шва по долготе нет, полюса сходятся.
+// Ветка ниже осталась для широких кадров, панорамой не являющихся (старые
+// карты и UGC), — из такого исходника развёртка собирается на canvas:
 //   - картинка занимает пояс широт вокруг горизонта (город внизу пояса);
 //   - выше пояса до зенита — плавный градиент, продолжающий цвет верхнего
 //     края картинки, + звёзды (у полюса растянутые по X — компенсация
@@ -129,6 +130,25 @@ function buildSkyTexture(img) {
   return { tex, zenith: rgb(topColor, 0.55) };
 }
 
+/**
+ * Готовая equirect-панорама (2:1) натягивается на сферу как есть. Достройка
+ * ниже нужна только старым широким кадрам, которые панорамой не были.
+ */
+function equirectTexture(img) {
+  const tex = new THREE.Texture(img);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.needsUpdate = true;
+  // Цвет зенита берём из самой картинки: он же уходит в фон-фолбэк.
+  const probe = document.createElement('canvas');
+  probe.width = 1; probe.height = 1;
+  const ctx = probe.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, img.width, Math.max(1, Math.round(img.height * 0.04)), 0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return { tex, zenith: `rgb(${r},${g},${b})` };
+}
+
 /** Грузит скайбокс по URL (кеш по URL — реванш/повтор не перегружает). */
 let currentSkyboxUrl = null;
 function loadSkybox(url) {
@@ -137,7 +157,9 @@ function loadSkybox(url) {
   const img = new Image();
   img.onload = () => {
     if (url !== currentSkyboxUrl) return; // пока грузилась — выбрали другую карту
-    const { tex, zenith } = buildSkyTexture(img);
+    // 2:1 — уже развёртка сферы, всё остальное считаем широким кадром.
+    const isEquirect = Math.abs(img.width / img.height - 2) < 0.02;
+    const { tex, zenith } = isEquirect ? equirectTexture(img) : buildSkyTexture(img);
     const previous = skyMat.map;
     skyMat.map = tex;
     skyMat.color.set('#ffffff');
@@ -148,7 +170,7 @@ function loadSkybox(url) {
   img.onerror = () => { if (url === currentSkyboxUrl) currentSkyboxUrl = null; };
   img.src = url;
 }
-loadSkybox('assets/skybox.jpg');
+loadSkybox('assets/sky/skybox.jpg');
 
 // процедурное окружение для металла 3D-пушек (PBR без внешних ассетов)
 import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
@@ -586,7 +608,7 @@ async function startMatch(mapId, ghostEntry) {
   G.map = nextMap;
   G.mapGroup = G.map.mesh;
   scene.add(G.mapGroup);
-  loadSkybox(G.map.data.skybox ?? 'assets/skybox.jpg');
+  loadSkybox(G.map.data.skybox ?? 'assets/sky/skybox.jpg');
 
   // солнце в фактический центр карты (важно для UGC-карт)
   const blocks = G.map.data.blocks ?? [];

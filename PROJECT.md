@@ -32,12 +32,11 @@ worktree; осознанный override — `-AllowDirty`. ZIP получает 
 sidecar-файлы с SHA-256/manifest. Публикуемый набор берётся из
 `tools/lib/runtime.mjs`; GitHub Pages использует ровно тот же whitelist.
 
-Опциональная генерация будущих арт-ассетов через Visionary API:
-`node tools/gen_skybox.mjs --mode=base|candidates [--force]`. Ключ
+Небо строится кодом: `node tools/gen_skydome.mjs` (см. раздел «Купол неба»).
+Генерация арт-ассетов через Visionary API осталась для иконок и карточек
+магазина: `node tools/gen_icons.mjs`, `node tools/gen_skin_cards.mjs`. Ключ
 `VISIONARY_API_KEY` читается только из environment или локального `.env` этого
-репозитория. Кандидат сначала проверяется вручную, затем продвигается командой
-`node tools/promote_skybox.mjs --candidate=candidate_N.jpg --target=skybox_name.jpg [--map=arenaNN]`;
-инструменты записывают SHA-256 и доступную provenance-метаинформацию.
+репозитория; инструменты записывают SHA-256 и provenance-метаинформацию.
 
 ## Структура
 
@@ -73,11 +72,13 @@ maps/*.json               — 5 карт (формат ниже)
 skins/*.json               — default + каталог магазина (5 встроенных + custom-слот)
 ghosts/*.json               — 25 записей: 5 карт × 5 сложностей
 assets/weapons/*.gltf        — 6 моделей оружия (Quaternius, CC0)
-assets/skybox.jpg, skybox_candidates/*.jpg, menu_bg.jpg — fallback, 5 небес карт, меню
+assets/sky/*.jpg              — 360°-панорамы: 5 арен + fallback (генерируются кодом)
+assets/music/ icons/ hud/ skins/ fonts/ — музыка, иконки, силуэты пушек, карточки, шрифты
 vendor/                       — self-host three.js + аддоны + lz-string
 tools/gen_maps.mjs             — генератор карт
 tools/gen_ghosts.mjs            — seed-генератор ботов (тот же Recorder, что в игре)
-tools/gen_skybox.mjs / promote_skybox.mjs — workflow генерации и отбора неба
+tools/gen_skydome.mjs           — 360°-панорамы неба (2:1, рисуются кодом)
+tools/gen_icons.mjs / gen_skin_cards.mjs / gen_music.mjs — иконки, карточки, музыка
 tools/check_*.mjs, tests/run.mjs — syntax, JSON/glTF, карты, пикапы, replay, unit
 tools/stage_runtime.mjs          — staging runtime-whitelist для Pages
 tools/pack_release.mjs           — воспроизводимый ZIP + manifest/checksums
@@ -119,7 +120,7 @@ pickupCount × 5 байт: uint32 tick; uint8 weapon
 ```json
 {
   "id": "arena01", "name": "…",
-  "skybox": "assets/skybox_candidates/candidate_1.jpg",
+  "skybox": "assets/sky/arena01.jpg",
   "palette": { "1": { "color": "#hex", "tex": "grass_dirt" }, … },
   "blocks": [[x, y, z, type], …],            // воксели, сетка 1 м
   "spawns": [[x, y, z, yawDeg], …],           // 2 точки
@@ -286,20 +287,24 @@ response — экспоненциально затухающий шум 0.32 с,
 едет в сейве (`settings.music`). У пользовательских и присланных карт своей
 темы нет — для них играет `arena01`.
 
-## Скайбокс (js/game.js)
+## Купол неба (assets/sky, tools/gen_skydome.mjs)
 
-`SphereGeometry(140, 48, 32)` с `BackSide` следует за камерой. Источники —
-широкие 2048×512 пояса горизонта: пять встроенных карт указывают свои
-`assets/skybox_candidates/candidate_N.jpg`, своя карта использует
-`assets/skybox.jpg` как fallback.
+Панорамы строятся кодом: `node tools/gen_skydome.mjs` рисует честную
+equirect-развёртку 2:1 (2048×1024, ~110 КБ на арену) прямо в координатах
+долгота/широта. Шва по долготе нет по построению — шум и профиль города
+кольцевые; полюса сходятся в чистый цвет.
 
-При загрузке `buildSkyTexture()` собирает честный canvas 2048×1024 (2:1):
-исходный пояс занимает широты +55…−35°, к зениту и надиру продолжается средним
-цветом краёв, а верх дополняется детерминированными звёздами. Поэтому у сферы
-нет цилиндрических крышек и «tiny planet»-схлопывания исходного кадра. Текстуры
-кешируются по URL; при смене карты поздний `onload` игнорируется, предыдущая
-GPU-текстура освобождается. Генерация, варианты и edge-crossfade исходников
-описаны в `assets/skybox_candidates/PROVENANCE.md`.
+Так вышло не от хорошей жизни: генераторы изображений (nano-banana, GPT)
+рисуют обычный широкий кадр, а не развёртку сферы. На куполе это давало
+вертикальный стык и «воронку» у зенита, а качество исходников было низким.
+Раньше игра достраивала панораму из такого кадра на canvas — эта ветка
+осталась в `buildSkyTexture` для UGC-карт со своей картинкой, но встроенные
+арены её больше не используют: `loadSkybox` проверяет соотношение сторон и
+натягивает 2:1 напрямую (`equirectTexture`).
+
+У каждой арены своё время суток (пресеты в генераторе): закат в упор, ясный
+день, холодная ночь с луной, багровое зарево, рассвет над дымкой. Плюс
+`skybox.jpg` — общий фолбэк для пользовательских и присланных карт.
 
 ## Параметры движения
 

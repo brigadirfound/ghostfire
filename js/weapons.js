@@ -32,7 +32,7 @@ export const WEAPONS = [
 // множитель, и порядок размеров в руках разошёлся с мировым: снайперка
 // оказывалась короче дробовика.
 export const VIEW_POSE = Object.freeze({
-  pistol:  { length: 0.36, pos: [0.2, -0.22, -0.5], rot: [0, 0.06, 0] },
+  pistol:  { length: 0.28, pos: [0.21, -0.2, -0.58], rot: [0, 0.06, 0] },
   smg:     { length: 0.62, pos: [0.23, -0.25, -0.6], rot: [0, 0.06, 0] },
   railgun: { length: 0.64, pos: [0.3, -0.3, -0.5], rot: [0, 0, 0] },
   ar:      { length: 0.66, pos: [0.26, -0.26, -0.66], rot: [0, 0.05, 0] },
