@@ -4,16 +4,42 @@
 // Текстура собирается кодом через CanvasTexture — внешних файлов нет.
 import * as THREE from 'three';
 
+export const ART_SIZE = 16;
+export const MAX_ART_SIZE = 32;
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_IMAGE_DIMENSION = 4096;
+export const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+
+const COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+/** Возвращает безопасную копию арта с ограниченным размером и цветами. */
+export function sanitizeArt(art, fallbackSize = ART_SIZE) {
+  const requested = Number(art?.size);
+  const size = Number.isInteger(requested) && requested >= 1 && requested <= MAX_ART_SIZE
+    ? requested
+    : fallbackSize;
+  const source = Array.isArray(art?.pixels) ? art.pixels : [];
+  const pixels = new Array(size * size).fill(null);
+  const count = Math.min(source.length, pixels.length);
+  for (let i = 0; i < count; i++) {
+    const color = source[i];
+    pixels[i] = typeof color === 'string' && COLOR_RE.test(color) ? color.toLowerCase() : null;
+  }
+  return { size, pixels };
+}
+
 /** Собирает текстуру из пиксель-арта поверх базового цвета. null, если арта нет. */
 export function artToTexture(art, baseColor) {
-  if (!art || !Array.isArray(art.pixels) || !art.pixels.some(p => p)) return null;
-  const size = art.size ?? 16;
+  if (!art || !Array.isArray(art.pixels)) return null;
+  const safe = sanitizeArt(art);
+  if (!safe.pixels.some(Boolean)) return null;
+  const size = safe.size;
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
   ctx.fillStyle = baseColor;
   ctx.fillRect(0, 0, size, size);
-  art.pixels.forEach((p, i) => {
+  safe.pixels.forEach((p, i) => {
     if (!p) return;
     ctx.fillStyle = p;
     ctx.fillRect(i % size, Math.floor(i / size), 1, 1);
@@ -40,6 +66,16 @@ export function boxMaterials(makeMat, baseColor, art) {
 
 /** Уменьшает произвольную картинку до пиксель-арта size×size. */
 export function imageToArt(img, size = 16) {
+  if (!Number.isInteger(size) || size < 1 || size > MAX_ART_SIZE) {
+    throw new RangeError(`Pixel-art size must be between 1 and ${MAX_ART_SIZE}`);
+  }
+  const sourceWidth = Number(img?.naturalWidth ?? img?.videoWidth ?? img?.width);
+  const sourceHeight = Number(img?.naturalHeight ?? img?.videoHeight ?? img?.height);
+  if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) ||
+      sourceWidth < 1 || sourceHeight < 1 ||
+      sourceWidth > MAX_IMAGE_DIMENSION || sourceHeight > MAX_IMAGE_DIMENSION) {
+    throw new RangeError(`Image dimensions must be between 1 and ${MAX_IMAGE_DIMENSION}px`);
+  }
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
@@ -76,41 +112,43 @@ function draw(fn) {
   return { size: 16, pixels };
 }
 
+// Ключи — идентификаторы словаря, а не подписи: при выборе пресета копируется
+// только рисунок, имя нигде не сохраняется, поэтому переименование безопасно.
 export const MASK_PRESETS = {
-  'Череп': draw(R => {
+  maskSkull: draw(R => {
     R(2, 1, 12, 11, '#e8e8e0');
     R(4, 12, 8, 3, '#e8e8e0');
     R(3, 4, 4, 4, '#111'); R(9, 4, 4, 4, '#111');   // глазницы
     R(7, 8, 2, 3, '#111');                            // нос
     R(4, 12, 1, 3, '#999'); R(6, 12, 1, 3, '#999'); R(8, 12, 1, 3, '#999'); R(10, 12, 1, 3, '#999'); // зубы
   }),
-  'Робот': draw(R => {
+  maskRobot: draw(R => {
     R(1, 2, 14, 12, '#8a95a5');
     R(2, 5, 12, 3, '#ff2222');                        // визор
     R(4, 10, 8, 2, '#333');                           // решётка
     R(5, 10, 1, 2, '#777'); R(7, 10, 1, 2, '#777'); R(9, 10, 1, 2, '#777');
     R(0, 6, 1, 4, '#556'); R(15, 6, 1, 4, '#556');    // уши
   }),
-  'Ниндзя': draw(R => {
+  maskNinja: draw(R => {
     R(0, 0, 16, 16, '#1a1d24');
     R(2, 5, 12, 3, '#f0d0b0');                        // прорезь
     R(3, 6, 2, 1, '#111'); R(11, 6, 2, 1, '#111');    // глаза
     R(0, 2, 16, 1, '#c02030');                        // повязка
   }),
-  'Демон': draw(R => {
+  maskDemon: draw(R => {
     R(1, 3, 14, 12, '#a01818');
     R(0, 0, 3, 4, '#e8c84a'); R(13, 0, 3, 4, '#e8c84a'); // рога
     R(3, 6, 3, 2, '#ffe040'); R(10, 6, 3, 2, '#ffe040'); // глаза
     R(5, 11, 6, 2, '#111');
     R(5, 10, 1, 1, '#fff'); R(10, 10, 1, 1, '#fff');  // клыки
   }),
-  'Смайл': draw(R => {
+  maskSmile: draw(R => {
     R(1, 1, 14, 14, '#ffd935');
     R(4, 5, 2, 3, '#111'); R(10, 5, 2, 3, '#111');
     R(3, 10, 1, 1, '#111'); R(12, 10, 1, 1, '#111');
     R(4, 11, 8, 1, '#111');
   }),
-  'Клоун': draw(R => {
+  maskClown: draw(R => {
     R(2, 2, 12, 12, '#f0f0f0');
     R(0, 0, 4, 4, '#30a030'); R(12, 0, 4, 4, '#30a030'); R(6, 0, 4, 3, '#30a030'); // волосы
     R(4, 6, 2, 2, '#2040c0'); R(10, 6, 2, 2, '#2040c0');

@@ -33,12 +33,13 @@ export class Recorder {
   update(dt, pos, yaw, pitch, weapon) {
     this._accum += dt;
     const step = 1 / this.tickRate;
+    let written = 0;
     while (this._accum >= step) {
       this._accum -= step;
-      let flags = (weapon & 7) << 1;
-      if (this._jumped) { flags |= 1; this._jumped = false; }
-      this.frames.push({ x: pos.x, y: pos.y, z: pos.z, yaw, pitch, flags });
+      this._pushFrame(pos, yaw, pitch, weapon);
+      written++;
     }
+    return written;
   }
 
   markJump() { this._jumped = true; }
@@ -47,7 +48,32 @@ export class Recorder {
 
   get durationSec() { return this.frames.length / this.tickRate; }
 
+  /**
+   * Гарантирует, что текущее состояние и все события текущего render-frame
+   * представлены в timeline до encode(). Если обычный update() уже записал
+   * это состояние и event tick валиден, дубликат не создаётся.
+   */
+  ensureFinalFrame(pos, yaw, pitch, weapon) {
+    const last = this.frames[this.frames.length - 1];
+    const latestEventTick = Math.max(
+      this.shots.length ? this.shots[this.shots.length - 1].tick : -1,
+      this.pickups.length ? this.pickups[this.pickups.length - 1].tick : -1,
+    );
+    const sameState = last && last.x === pos.x && last.y === pos.y && last.z === pos.z &&
+      last.yaw === yaw && last.pitch === pitch && ((last.flags >> 1) & 7) === (weapon & 7);
+    if (this.frames.length > latestEventTick && sameState) return false;
+    this._pushFrame(pos, yaw, pitch, weapon);
+    return true;
+  }
+
+  _pushFrame(pos, yaw, pitch, weapon) {
+    let flags = (weapon & 7) << 1;
+    if (this._jumped) { flags |= 1; this._jumped = false; }
+    this.frames.push({ x: pos.x, y: pos.y, z: pos.z, yaw, pitch, flags });
+  }
+
   encode() {
+    validateTimeline(this.tickRate, this.frames, this.shots, this.pickups);
     const size = HEADER_SIZE + this.frames.length * FRAME_SIZE +
       this.shots.length * SHOT_SIZE + this.pickups.length * PICKUP_SIZE;
     const buf = new ArrayBuffer(size);
@@ -78,6 +104,7 @@ export class Recorder {
 
 export function decode(base64) {
   const bytes = base64ToBytes(base64);
+  if (bytes.byteLength < HEADER_SIZE) throw new Error('bad ghost data: truncated header');
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
   if (magic !== MAGIC) throw new Error('bad ghost data: magic mismatch');
@@ -85,6 +112,11 @@ export function decode(base64) {
   const frameCount = dv.getUint32(6, true);
   const shotCount = dv.getUint32(10, true);
   const pickupCount = dv.getUint32(14, true);
+  const expectedSize = HEADER_SIZE + frameCount * FRAME_SIZE +
+    shotCount * SHOT_SIZE + pickupCount * PICKUP_SIZE;
+  if (expectedSize !== bytes.byteLength) throw new Error('bad ghost data: size mismatch');
+  if (tickRate < 1 || tickRate > 240) throw new Error('bad ghost data: invalid tick rate');
+  if (frameCount === 0) throw new Error('bad ghost data: empty replay');
   let o = HEADER_SIZE;
   const frames = new Array(frameCount);
   for (let i = 0; i < frameCount; i++) {
@@ -104,6 +136,7 @@ export function decode(base64) {
     pickups[i] = { tick: dv.getUint32(o, true), weapon: dv.getUint8(o + 4) };
     o += PICKUP_SIZE;
   }
+  validateTimeline(tickRate, frames, shots, pickups);
   return new Replay(tickRate, frames, shots, pickups);
 }
 
@@ -122,7 +155,7 @@ export class Replay {
     if (!this.shots.length) return { accuracy: 0.4, headRate: 0.1, shots: 0 };
     let hits = 0, heads = 0;
     for (const s of this.shots) { if (s.hit) hits++; if (s.hit === 2) heads++; }
-    return { accuracy: hits / this.shots.length, headRate: heads / this.shots.length, shots: this.shots.length };
+    return { accuracy: hits / this.shots.length, headRate: hits ? heads / hits : 0, shots: this.shots.length };
   }
 
   /** Интерполированное состояние на момент t (сек). Зацикливается по концу записи. */
@@ -148,10 +181,35 @@ export class Replay {
 }
 
 function lerpAngle(a, b, k) {
-  let d = b - a;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
+  // Остаток нормализует за O(1). Циклы здесь позволяли crafted, но конечному
+  // yaw порядка 1e38 заморозить главный поток на практически бесконечное время.
+  const turn = Math.PI * 2;
+  let d = (b - a) % turn;
+  if (d > Math.PI) d -= turn;
+  else if (d < -Math.PI) d += turn;
   return a + d * k;
+}
+
+function validateTimeline(tickRate, frames, shots, pickups) {
+  if (!Number.isInteger(tickRate) || tickRate < 1 || tickRate > 240)
+    throw new Error('bad ghost data: invalid tick rate');
+  if (!frames.length) throw new Error('bad ghost data: empty replay');
+  for (const f of frames) {
+    if (![f.x, f.y, f.z, f.yaw, f.pitch].every(Number.isFinite) ||
+        !Number.isInteger(f.flags) || f.flags < 0 || f.flags > 255 || ((f.flags >> 1) & 7) > 5)
+      throw new Error('bad ghost data: invalid frame');
+  }
+  for (const s of shots) {
+    if (!Number.isInteger(s.tick) || s.tick < 0 || s.tick >= frames.length ||
+        !Number.isInteger(s.weapon) || s.weapon < 0 || s.weapon > 5 ||
+        !Number.isInteger(s.hit) || s.hit < 0 || s.hit > 2)
+      throw new Error('bad ghost data: invalid shot');
+  }
+  for (const p of pickups) {
+    if (!Number.isInteger(p.tick) || p.tick < 0 || p.tick >= frames.length ||
+        !Number.isInteger(p.weapon) || p.weapon < 0 || p.weapon > 5)
+      throw new Error('bad ghost data: invalid pickup');
+  }
 }
 
 // --- base64, работает в браузере и в Node ---

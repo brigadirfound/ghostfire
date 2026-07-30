@@ -2,6 +2,7 @@
 let ctx = null;
 let master = null;
 let enabled = true;
+const activeSources = new Set();
 
 export const Sound = {
   init() {
@@ -14,13 +15,31 @@ export const Sound = {
   resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
   /** Глушим на время рекламы и при сворачивании вкладки. */
   suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); },
+  /** Отменяет хвосты текущего матча, сохраняя AudioContext и master bus. */
+  stopAll() {
+    for (const source of activeSources) {
+      try { source.stop(); } catch { /* source уже завершился */ }
+      try { source.disconnect(); } catch { /* уже отключён */ }
+    }
+    activeSources.clear();
+  },
   setEnabled(v) { enabled = v; if (master) master.gain.value = v ? 0.5 : 0; },
 
   pistol() { shotBase(900, 0.09, 'square', 0.5); noiseBurst(0.05, 2200, 0.25); },
+  // Очень короткий высокий щелчок: не превращается в гул при 11 выстр./с.
+  smg() { shotBase(1350, 0.05, 'square', 0.28); noiseBurst(0.028, 3000, 0.12); },
+  // Более низкий и тяжёлый импульс, чем pistol/SMG.
+  assault() { shotBase(620, 0.11, 'sawtooth', 0.42); noiseBurst(0.065, 1800, 0.26); },
   shotgun() { noiseBurst(0.22, 900, 0.9); shotBase(150, 0.18, 'sawtooth', 0.6); },
+  // Резкий дальний crack + короткий низкочастотный удар, без rail charge.
+  sniper() {
+    noiseBurst(0.16, 3600, 0.55);
+    shotBase(1150, 0.18, 'sawtooth', 0.4);
+    shotBase(85, 0.24, 'sine', 0.32);
+  },
   railCharge(dur = 0.8) {
     if (!ok()) return;
-    const o = ctx.createOscillator(), g = ctx.createGain();
+    const o = track(ctx.createOscillator()), g = ctx.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(220, ctx.currentTime);
     o.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + dur);
@@ -51,7 +70,7 @@ function ok() { return ctx && enabled; }
 
 function shotBase(freq, dur, type, vol) {
   if (!ok()) return;
-  const o = ctx.createOscillator(), g = ctx.createGain();
+  const o = track(ctx.createOscillator()), g = ctx.createGain();
   o.type = type;
   o.frequency.setValueAtTime(freq, ctx.currentTime);
   o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.25), ctx.currentTime + dur);
@@ -64,7 +83,7 @@ function shotBase(freq, dur, type, vol) {
 function blip(freq, dur, vol, delay = 0) {
   if (!ok()) return;
   const t0 = ctx.currentTime + delay;
-  const o = ctx.createOscillator(), g = ctx.createGain();
+  const o = track(ctx.createOscillator()), g = ctx.createGain();
   o.type = 'square';
   o.frequency.value = freq;
   g.gain.setValueAtTime(vol, t0);
@@ -79,7 +98,7 @@ function noiseBurst(dur, cutoff, vol) {
   const buf = ctx.createBuffer(1, n, ctx.sampleRate);
   const d = buf.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
-  const src = ctx.createBufferSource();
+  const src = track(ctx.createBufferSource());
   src.buffer = buf;
   const f = ctx.createBiquadFilter();
   f.type = 'lowpass'; f.frequency.value = cutoff;
@@ -87,4 +106,13 @@ function noiseBurst(dur, cutoff, vol) {
   g.gain.value = vol;
   src.connect(f).connect(g).connect(master);
   src.start();
+}
+
+function track(source) {
+  activeSources.add(source);
+  source.addEventListener?.('ended', () => {
+    activeSources.delete(source);
+    try { source.disconnect(); } catch { /* уже отключён */ }
+  }, { once: true });
+  return source;
 }

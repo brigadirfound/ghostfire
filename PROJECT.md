@@ -17,24 +17,34 @@ npx http-server -p 8123 -c-1 .
 
 ```
 node tools/gen_maps.mjs       # maps/*.json
-node tools/gen_ghosts.mjs     # ghosts/*.json — матрица 5 карт × 5 сложностей
-node tools/check_maps.mjs     # валидация: спавны/пропасти/стены
-node tools/check_pickups.mjs  # валидация: точки оружия не внутри стен
+node tools/gen_ghosts.mjs --seed=ghostfire-v1 # детерминированная матрица 5×5
+npm test                      # все проверки одним раннером, без npm-зависимостей
 ```
 
-Сборка билда для Яндекс Игр: `powershell -File tools/pack_yandex.ps1` → `ghostfire_yandex.zip`.
+`gen_maps.mjs` сохраняет уже назначенное поле `skybox`, если генератор карты
+запущен повторно. `gen_ghosts.mjs` не использует ambient `Math.random`: один и
+тот же seed даёт те же записи.
 
-Генерация арт-ассетов (скайбокс/фон меню) через Nano Banana:
-`node tools/gen_skybox.mjs [--force]` — ключ `VISIONARY_API_KEY` читается в
-рантайме из `.env` (свой либо `D:/games/chislopad/.env` либо `berry-merge/.env`),
-в репозиторий не попадает.
+Сборка для Яндекс Игр: `powershell -File tools/pack_yandex.ps1` →
+`ghostfire_yandex.zip`. Сборщик по умолчанию отказывается работать с dirty
+worktree; осознанный override — `-AllowDirty`. ZIP получает фиксированное время
+из commit, сортированный список файлов, внутренний `release-manifest.json` и
+sidecar-файлы с SHA-256/manifest. Публикуемый набор берётся из
+`tools/lib/runtime.mjs`; GitHub Pages использует ровно тот же whitelist.
+
+Опциональная генерация будущих арт-ассетов через Visionary API:
+`node tools/gen_skybox.mjs --mode=base|candidates [--force]`. Ключ
+`VISIONARY_API_KEY` читается только из environment или локального `.env` этого
+репозитория. Кандидат сначала проверяется вручную, затем продвигается командой
+`node tools/promote_skybox.mjs --candidate=candidate_N.jpg --target=skybox_name.jpg [--map=arenaNN]`;
+инструменты записывают SHA-256 и доступную provenance-метаинформацию.
 
 ## Структура
 
 ```
 index.html            — importmap (vendor/, self-host), DOM экранов/HUD, CSS
 editor.html            — редакторы карт и скинов (вкладки)
-js/game.js             — оркестратор: сцена, скайбокс-цилиндр, свет, матч-цикл,
+js/game.js             — оркестратор: сцена, сферический sky-dome, свет, матч-цикл,
                           стрельба, паузы, экономика матча, gib-пул
 js/player.js            — FPS-контроллер (WASD+PointerLock, прыжки, распрыжка,
                           6 пушек, воксельная кисть у грипа с покачиванием)
@@ -47,7 +57,7 @@ js/textures.js           — процедурный атлас блочных т
 js/replay.js             — ПРОТОКОЛ записи призрака (бинарный, base64), без
                           зависимостей от DOM — тот же формат под будущий WebSocket
 js/economy.js            — расчёт награды за матч (госткоины), анти-абьюз
-js/mobile.js             — стик, свайп-камера, кнопки, автоогонь, aim-assist 3°
+js/mobile.js             — modality-aware стик/камера, огонь, прыжок, пауза, aim-assist 3°
 js/ui.js                 — все экраны, HUD, шеринг (LZ-string), тосты
 js/audio.js              — весь звук синтезом через Web Audio, без файлов
 js/platform.js           — обёртка платформы: автоопределение Яндекс SDK / localStorage-заглушки
@@ -60,17 +70,17 @@ js/skin-editor.js        — редактор скинов: color-пикеры �
 js/botgen.js             — синтез бота под пользовательскую карту (в браузере)
 js/mappreview.js         — топ-даун превью карты для карточек в меню
 maps/*.json               — 5 карт (формат ниже)
-skins/*.json               — default + shop (6 покупных скинов)
+skins/*.json               — default + каталог магазина (5 встроенных + custom-слот)
 ghosts/*.json               — 25 записей: 5 карт × 5 сложностей
 assets/weapons/*.gltf        — 6 моделей оружия (Quaternius, CC0)
-assets/skybox.jpg, menu_bg.jpg — арт (генерация ниже)
+assets/skybox.jpg, skybox_candidates/*.jpg, menu_bg.jpg — fallback, 5 небес карт, меню
 vendor/                       — self-host three.js + аддоны + lz-string
 tools/gen_maps.mjs             — генератор карт
-tools/gen_ghosts.mjs            — генератор ботов (тот же Recorder, что в игре)
-tools/gen_skybox.mjs             — генератор арта через Nano Banana
-tools/check_maps.mjs              — валидатор карт/ботов
-tools/check_pickups.mjs            — валидатор точек оружия (не внутри стен)
-tools/pack_yandex.ps1               — сборка zip для консоли Яндекса
+tools/gen_ghosts.mjs            — seed-генератор ботов (тот же Recorder, что в игре)
+tools/gen_skybox.mjs / promote_skybox.mjs — workflow генерации и отбора неба
+tools/check_*.mjs, tests/run.mjs — syntax, JSON/glTF, карты, пикапы, replay, unit
+tools/stage_runtime.mjs          — staging runtime-whitelist для Pages
+tools/pack_release.mjs           — воспроизводимый ZIP + manifest/checksums
 ```
 
 ## Архитектура записи призрака (js/replay.js)
@@ -109,6 +119,7 @@ pickupCount × 5 байт: uint32 tick; uint8 weapon
 ```json
 {
   "id": "arena01", "name": "…",
+  "skybox": "assets/skybox_candidates/candidate_1.jpg",
   "palette": { "1": { "color": "#hex", "tex": "grass_dirt" }, … },
   "blocks": [[x, y, z, type], …],            // воксели, сетка 1 м
   "spawns": [[x, y, z, yawDeg], …],           // 2 точки
@@ -123,7 +134,17 @@ pickupCount × 5 байт: uint32 tick; uint8 weapon
 (vertex colors × UV на тайл, один draw call), коллизии — Set вокселей.
 Kill-zone: `y < -1.5` = мгновенная смерть (для карт с пропастью — Блоки, Мосты).
 
-Редактор (`editor.html`) пишет тот же JSON.
+Редактор (`editor.html`) пишет тот же JSON, сохраняет безопасное назначение
+skybox при загрузке карты и ограничивает импорт по длине, числу блоков/пикапов,
+координатам и схеме до передачи платформенному валидатору.
+
+Обе вкладки редактора ждут `Platform.initSDK()`, выбирают RU/EN из
+`Platform.detectedLang` (ручное переключение сохраняется локально) и используют
+те же cloud/local слоты, что игра. Успех показывается только если `save*`
+вернул `true`. При `pagehide` останавливаются оба rAF, снимаются listeners,
+освобождаются OrbitControls, WebGL-контексты, геометрии, материалы и текстуры.
+Импорт изображений ограничен 5 МБ/4096 px и безопасными типами; пиксель-арт
+нормализуется до 16×16 (рендер поддерживает только ограниченные размеры).
 
 ## Оружие: 6 моделей (js/weapons.js)
 
@@ -163,19 +184,18 @@ ID стабильны (0-2 — исходные, протокол записи �
 
 ## Скайбокс (js/game.js)
 
-Большой цилиндр (радиус 140, высота 500, `BackSide`) вокруг игрока с
-текстурой `assets/skybox.jpg` на внутренней стороне; позиция следует за
-камерой по X/Z каждый кадр в главном цикле. **Не** используй
-`scene.background = texture` напрямую и **не** используй
-`EquirectangularReflectionMapping` — оба варианта проверены и сломаны:
-первый даёт статичный, не поворачивающийся с камерой фон («карта выглядит
-приклеенной поверх скриншота»), второй — искажение «tiny planet» (текстура
-не является честной сферической 360°-панорамой, только широкий кадр города,
-поэтому сферическая/equirect-развёртка схлопывает её в точку на полюсах).
-У цилиндра нет полюсов — искажений нет, обзор поворачивается вместе с камерой
-естественно. Один шов сзади (края текстуры сходятся) — в аренной дуэли почти
-не заметен. Высота с большим запасом, чтобы открытый верх цилиндра не попадал
-в кадр даже на высоких точках карт (башни arena05).
+`SphereGeometry(140, 48, 32)` с `BackSide` следует за камерой. Источники —
+широкие 2048×512 пояса горизонта: пять встроенных карт указывают свои
+`assets/skybox_candidates/candidate_N.jpg`, своя карта использует
+`assets/skybox.jpg` как fallback.
+
+При загрузке `buildSkyTexture()` собирает честный canvas 2048×1024 (2:1):
+исходный пояс занимает широты +55…−35°, к зениту и надиру продолжается средним
+цветом краёв, а верх дополняется детерминированными звёздами. Поэтому у сферы
+нет цилиндрических крышек и «tiny planet»-схлопывания исходного кадра. Текстуры
+кешируются по URL; при смене карты поздний `onload` игнорируется, предыдущая
+GPU-текстура освобождается. Генерация, варианты и edge-crossfade исходников
+описаны в `assets/skybox_candidates/PROVENANCE.md`.
 
 ## Параметры движения
 
@@ -222,7 +242,8 @@ GLTF-модели оружия кешируются (грузятся один �
    внутри Яндекса работает кодом, а не ссылкой на каталог
 2. Завести 3 товара `pack_s`/`pack_m`/`pack_l` (цены в Янах — см. `skins/shop.json`)
    и лидерборд `wins`, затем `paymentsEnabled: true`
-3. `powershell -File tools/pack_yandex.ps1` → загрузить zip в черновик игры
+3. На чистом worktree выполнить `npm test`, затем
+   `powershell -File tools/pack_yandex.ps1` и сверить `.sha256` перед загрузкой
 
 **Шеринг по окружениям**: на Яндексе —
 `https://yandex.ru/games/app/<yandexAppId>?payload=<код>` (только внутри
@@ -231,9 +252,10 @@ GLTF-модели оружия кешируются (грузятся один �
 
 ## Деплой
 
-GitHub Pages через Actions (`.github/workflows/pages.yml`) — деплой на
-каждый push в main автоматически (Settings → Pages → Source: GitHub Actions
-уже выставлено).
+GitHub Pages через Actions (`.github/workflows/pages.yml`) — на каждый push в
+main запускает тот же `npm test`, что и CI, затем публикует staging-каталог из
+`tools/stage_runtime.mjs`, а не весь checkout. ZIP и Pages используют общий
+whitelist `tools/lib/runtime.mjs`.
 
 ## Известные проблемы
 
@@ -245,8 +267,8 @@ GitHub Pages через Actions (`.github/workflows/pages.yml`) — деплой
 - В фоновой вкладке rAF троттлится — отсчёт/матч замирают (не баг для игрока).
 - Автоогонь на мобиле проверяет LOS от призрака, конус 6° — может огорчать на
   сверхдальних дистанциях (намеренно, чтобы не палил через пол-карты).
-- Скайбокс-цилиндр: один шов сзади там, где сходятся края текстуры (см. раздел
-  «Скайбокс» выше) — компромисс, не баг.
+- У sky-dome остаётся один долготный стык; 96-пиксельный edge-crossfade в
+  подготовленных панорамах делает его менее заметным, но не устраняет сам шов.
 
 ## Проверить на реальном устройстве (эмуляцией не покрыто)
 
@@ -254,6 +276,8 @@ GitHub Pages через Actions (`.github/workflows/pages.yml`) — деплой
 - [ ] Пинч-зум действительно заглушен (iOS Safari отдельно — жест gesturestart)
 - [ ] Автоогонь: конус наведения ощущается честным на реальном экране
 - [ ] Кнопки FIRE/JMP достижимы большим пальцем на 5-6" экране, не перекрывают свайп
+- [ ] Кнопка паузы Ⅱ доступна с вырезом/скруглениями экрана и не даёт stuck input
+- [ ] На ноутбуке с тачскрином мышь возвращает desktop-режим, палец — mobile UI
 - [ ] Вертикальный скролл экранов пальцем (магазин, выбор сложности)
 - [ ] Клавиатура не выезжает на textarea «У меня есть код» поверх кнопок
 - [ ] Производительность: 60 FPS на среднем телефоне, нагрев за 5 минут матча,
@@ -283,7 +307,7 @@ GitHub Pages через Actions (`.github/workflows/pages.yml`) — деплой
   только косметика, баланс не продаём.
 
 ### Прочее
-- Зоны урона по конечностям, килфид, статистика попаданий по зонам.
+- Зоны урона по конечностям и расширенная статистика попаданий по зонам.
 - Спектатор-реплей целого матча (формат уже пишет всё нужное).
 - Динамическая музыка синтезом (Web Audio уже в проекте).
 - 3D-превью скина в карточке магазина; маски отдельным дешёвым слотом.
@@ -299,3 +323,9 @@ GitHub Pages через Actions (`.github/workflows/pages.yml`) — деплой
 - **п. 3.5:** платформенные комментарии вынесены/нейтрализованы; payload-конфигурация (`yandexAppId`, `yandexPayloadLimit`) сохранена как техническая локальная доработка внутри platform/config boundary.
 - **Уже было чисто:** wrapper использует `Sound.suspend()` / `Sound.resume()`, cooldown interstitial и маркировку rewarded-кнопок.
 
+## Лицензии и provenance
+
+Проект не объявляет project-wide лицензионный grant: фактический статус записан
+в `LICENSE`. Тексты MIT для bundled three.js/lz-string, ссылка на CC0-страницу
+Quaternius и доступная provenance визуальных ассетов собраны в `NOTICE.md`.
+Это описание не подменяет проверку прав правообладателем перед публикацией.

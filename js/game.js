@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GameMap } from './map.js';
 import { Player, MOVE } from './player.js';
 import { Ghost } from './ghost.js';
-import { WEAPONS, RAILGUN, Pickup, TracerPool, fireHitscan } from './weapons.js';
+import { WEAPONS, RAILGUN, Pickup, TracerPool, fireHitscan, preloadWeaponModels } from './weapons.js';
 import { Recorder, decode, TICK_RATE } from './replay.js';
 import { MobileControls, IS_TOUCH } from './mobile.js';
 import { UI, decodeShareCode } from './ui.js';
@@ -136,11 +136,14 @@ function loadSkybox(url) {
   img.onload = () => {
     if (url !== currentSkyboxUrl) return; // пока грузилась — выбрали другую карту
     const { tex, zenith } = buildSkyTexture(img);
+    const previous = skyMat.map;
     skyMat.map = tex;
     skyMat.color.set('#ffffff');
     skyMat.needsUpdate = true;
     scene.background = new THREE.Color(zenith); // фолбэк до загрузки следующего
+    previous?.dispose();
   };
+  img.onerror = () => { if (url === currentSkyboxUrl) currentSkyboxUrl = null; };
   img.src = url;
 }
 loadSkybox('assets/skybox.jpg');
@@ -210,11 +213,17 @@ class GibPool {
       it.mesh.material.opacity = it.life; // fade 1с
     }
   }
+  clear() {
+    for (const it of this.items) {
+      it.life = 0;
+      it.mesh.visible = false;
+    }
+  }
 }
 
 // ---------- состояние ----------
 const G = {
-  state: 'menu',      // menu | countdown | playing | roundend | matchend
+  state: 'menu',      // menu | loading | countdown | playing | paused | roundend | roundscreen | matchend
   map: null,
   mapGroup: null,
   player: null,
@@ -227,8 +236,15 @@ const G = {
   ghostEntry: null,
   mapId: 'arena01',
   roundRecorder: null,
-  roundStartAt: 0,
+  roundElapsed: 0,
+  roundStartedAt: null,
+  roundPausedMs: 0,
+  roundPauseAt: null,
   bestRound: null,     // { durationSec, data } — быстрейший выигранный раунд
+  ownerDurationSec: null,
+  mapIsEmbedded: false,
+  startSeq: 0,
+  platformPaused: false,
   matchShots: 0,
   matchHits: 0,
   matchHeadshots: 0,
@@ -318,6 +334,7 @@ const ui = new UI({
   getCustomMap: () => customMap,
   getShop: () => shop,
   getWallet: () => wallet,
+  loadPaymentCatalog: () => Platform.loadPaymentCatalog(),
   buyCoins: async (pack) => { wallet = await Platform.buyCoinsPack(pack.id, pack.coins); },
   buyOrEquipSkin,
   getShareUrl: (code) => Platform.getShareUrl(code),
@@ -373,7 +390,11 @@ document.addEventListener('pointerlockchange', () => {
   const was = locked;
   locked = document.pointerLockElement === canvas;
   // ESC во время игры снимает захват мыши → это и есть "открыть паузу"
-  if (was && !locked && (G.state === 'playing' || G.state === 'countdown')) pauseMatch();
+  if (was && !locked && (G.state === 'playing' || G.state === 'countdown')) {
+    // При скрытии Yandex пришлёт authoritative game_api_pause; обычный Escape
+    // во видимой вкладке остаётся ручной паузой.
+    if (!(Platform.isYandex && document.hidden)) pauseMatch();
+  }
 });
 document.addEventListener('mousemove', (e) => {
   if (!G.player) return;
@@ -393,10 +414,14 @@ document.addEventListener('mouseup', (e) => {
 // сворачивание вкладки: пауза матча и звука (требование площадок)
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    if (G.state === 'playing' || G.state === 'countdown') pauseMatch();
+    // На Яндексе состояние синхронизируют game_api_pause/resume. Если здесь
+    // успеть поставить manual pause раньше SDK event, platform resume уже не
+    // имеет права снять её. В offline режиме сохраняем прежнюю автопаузу.
+    if (!Platform.isYandex && (G.state === 'playing' || G.state === 'countdown')) pauseMatch();
     Sound.suspend();
   } else {
-    Sound.resume();
+    // Не будим AudioContext в menu/matchend (там может идти platform ad).
+    if (['loading', 'countdown', 'playing', 'roundend', 'roundscreen'].includes(G.state)) Sound.resume();
   }
 });
 
@@ -406,66 +431,161 @@ document.addEventListener('keydown', (e) => {
   if (!locked && (G.state === 'playing' || G.state === 'countdown')) pauseMatch();
   else if (G.state === 'paused') resumeMatch();
 });
+document.addEventListener('ghostfire:pause-request', () => {
+  if (G.state === 'paused') resumeMatch();
+  else pauseMatch();
+});
+document.addEventListener('ghostfire:platform-pause', () => {
+  if (G.state === 'playing' || G.state === 'countdown') pauseMatch('platform');
+});
+document.addEventListener('ghostfire:platform-resume', () => {
+  if (!G.platformPaused) return; // ручную паузу платформа снимать не вправе
+  if (G.state === 'paused') resumeMatch('platform');
+  else G.platformPaused = false;
+});
 
 // ---------- пауза ----------
-function pauseMatch() {
+function pauseMatch(source = 'manual') {
   if (G.state !== 'playing' && G.state !== 'countdown') return;
   G._pausedFrom = G.state;
+  G.platformPaused = source === 'platform';
+  if (G.state === 'playing') G.roundPauseAt = performance.now();
   G.state = 'paused';
+  // game_api_pause уже синхронизировал GameplayAPI внутри Platform.
+  if (source !== 'platform') Platform.gameplayStop?.();
   if (G.player) G.player.input.fire = false;
+  mobile.setPaused?.(true);
+  Sound.suspend();
   document.exitPointerLock?.();
   ui.buildPause();
 }
 
-function resumeMatch() {
+function resumeMatch(source = 'manual') {
   if (G.state !== 'paused') return;
+  if (G.platformPaused && source !== 'platform') return;
   ui.hideAll();
   G.state = G._pausedFrom ?? 'playing';
+  if (G.state === 'playing' && G.roundPauseAt != null) {
+    G.roundPausedMs += performance.now() - G.roundPauseAt;
+    G.roundPauseAt = null;
+  }
+  G.platformPaused = false;
+  mobile.setPaused?.(false);
+  Sound.resume();
+  // Аналогично, game_api_resume не нужно подтверждать вторым SDK-вызовом.
+  if (G.state === 'playing' && source !== 'platform') Platform.gameplayStart?.();
   tryLock();
 }
 
 // ---------- матч ----------
-async function startMatch(mapId, ghostEntry, keepScore = false) {
-  Sound.init(); Sound.resume();
+function cleanupMatchEntities() {
+  Sound.stopAll?.();
+  if (G.player) G.player.dispose();
+  if (G.ghost) G.ghost.dispose();
+  for (const p of G.pickups) p.dispose(scene);
+  if (G.mapGroup) scene.remove(G.mapGroup);
+  G.map?.dispose();
+  G.player = null;
+  G.ghost = null;
+  G.pickups = [];
+  G.map = null;
+  G.mapGroup = null;
+  G.roundRecorder = null;
+  G.roundElapsed = 0;
+  G.roundStartedAt = null;
+  G.roundPausedMs = 0;
+  G.roundPauseAt = null;
+  G.tracers?.clear();
+  G.gibs?.clear();
+  mobile.attach(null, () => null);
+  mobile.reset?.();
+}
+
+async function startMatch(mapId, ghostEntry) {
+  let replay;
+  try {
+    replay = decode(ghostEntry?.data);
+  } catch (error) {
+    console.warn('[game] invalid replay', error);
+    ui.toast(t('badCode'));
+    return;
+  }
+  const startSeq = ++G.startSeq;
+  Sound.init(); Sound.stopAll?.(); Sound.resume();
+  G.state = 'loading';
+  G.platformPaused = false;
+  Platform.gameplayStop?.();
   // встроенные боты существуют на каждой карте — выбор игрока главнее;
   // призраки-вызовы наоборот привязаны к своей карте (едет с призраком)
   G.mapId = ghostEntry?._builtin ? mapId : (ghostEntry?.map ?? mapId);
   G.ghostEntry = ghostEntry;
-  if (!keepScore) {
-    G.score.me = 0; G.score.foe = 0; G.bestRound = null;
-    G.matchShots = 0; G.matchHits = 0; G.matchHeadshots = 0; G.matchBodyshots = 0;
-  }
+  G.score.me = 0; G.score.foe = 0; G.bestRound = null;
+  G.matchShots = 0; G.matchHits = 0; G.matchHeadshots = 0; G.matchBodyshots = 0;
+  G.lastReward = null;
+  G.ownerDurationSec = null;
+  G.mapIsEmbedded = Boolean(ghostEntry?.mapData || G.mapId === '__custom');
 
   // очистка предыдущего матча
-  if (G.mapGroup) { scene.remove(G.mapGroup); }
-  if (G.ghost) G.ghost.dispose();
-  if (G.player) G.player.dispose();
-  for (const p of G.pickups) scene.remove(p.mesh);
+  cleanupMatchEntities();
 
-  if (ghostEntry?.mapData) {
-    // призрак пришёл с собственной картой (шеринг с пользовательской карты)
-    G.map = new GameMap(ghostEntry.mapData);
-  } else if (G.mapId === '__custom') {
-    const data = await Platform.loadCustomMap();
-    if (!data) { ui.buildMenu(); return; }
-    G.map = new GameMap(data);
-  } else {
-    G.map = await GameMap.load(G.mapId);
+  let nextMap;
+  try {
+    if (ghostEntry?.mapData) {
+      // призрак пришёл с собственной картой (шеринг с пользовательской карты)
+      nextMap = new GameMap(ghostEntry.mapData);
+    } else if (G.mapId === '__custom') {
+      const data = await Platform.loadCustomMap();
+      if (!data) throw new Error('custom map is unavailable');
+      nextMap = new GameMap(data);
+    } else {
+      nextMap = await GameMap.load(G.mapId);
+    }
+  } catch (error) {
+    if (startSeq !== G.startSeq) return;
+    console.warn('[game] map load failed', error);
+    G.state = 'menu';
+    G.ghostEntry = null;
+    G.mapIsEmbedded = false;
+    Sound.suspend();
+    ui.buildMenu();
+    ui.toast(t('edLoadFailed'));
+    return;
   }
+  // Двойной клик может запустить два fetch карты. Доживает только последний;
+  // ресурсы опоздавшей загрузки сразу освобождаем.
+  if (startSeq !== G.startSeq) {
+    nextMap?.dispose();
+    return;
+  }
+  G.map = nextMap;
   G.mapGroup = G.map.mesh;
   scene.add(G.mapGroup);
   loadSkybox(G.map.data.skybox ?? 'assets/skybox.jpg');
 
-  // солнце в центр карты
-  const cx = 14, cz = 14;
+  // солнце в фактический центр карты (важно для UGC-карт)
+  const blocks = G.map.data.blocks ?? [];
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const b of blocks) {
+    minX = Math.min(minX, b[0]); maxX = Math.max(maxX, b[0]);
+    minZ = Math.min(minZ, b[2]); maxZ = Math.max(maxZ, b[2]);
+  }
+  const cx = blocks.length ? (minX + maxX + 1) * 0.5 : 0;
+  const cz = blocks.length ? (minZ + maxZ + 1) * 0.5 : 0;
   sun.position.set(cx + 18, 30, cz + 10);
   sun.target.position.set(cx, 0, cz);
 
   G.pickups = G.map.weaponSpots.map(s => new Pickup(s, G.skin, scene));
   G.tracers ??= new TracerPool(scene);
   G.gibs ??= new GibPool();
+  G.tracers.clear();
+  G.gibs.clear();
 
-  const replay = decode(ghostEntry.data);
+  const declaredDuration = Number(ghostEntry?.durationSec);
+  const minDeclaredDuration = Math.max(0.05, replay.durationSec - 1 / replay.tickRate);
+  G.ownerDurationSec = Number.isFinite(declaredDuration) &&
+    declaredDuration >= minDeclaredDuration && declaredDuration <= 600
+    ? declaredDuration
+    : (!ghostEntry?._builtin && replay.durationSec > 0 ? replay.durationSec : null);
   G.ghost = new Ghost({
     replay, map: G.map, skin: G.skin, scene,
     pickups: G.pickups,
@@ -477,6 +597,7 @@ async function startMatch(mapId, ghostEntry, keepScore = false) {
     onFire: playerShoots,
   });
   mobile.attach(G.player, () => G.ghost);
+  mobile.setPaused?.(false);
 
   ui.hideAll();
   startRound();
@@ -491,8 +612,8 @@ function startRound() {
     ((a.pos.x - gs.x) ** 2 + (a.pos.z - gs.z) ** 2))[0] ?? G.map.spawns[0];
   G.player.spawn(spawn);
   G.player.recorder = null;
-  G.ghost.reset();
   for (const p of G.pickups) { p.timer = 0; p.mesh.visible = true; }
+  G.ghost.reset();
   ui.setHP(100);
   ui.setWeapon(WEAPONS[0].key);
   ui.setScore(G.score.me, G.score.foe);
@@ -510,7 +631,17 @@ function beginPlay() {
   Sound.go();
   G.roundRecorder = new Recorder(TICK_RATE);
   G.player.recorder = G.roundRecorder;
-  G.roundStartAt = performance.now();
+  G.roundElapsed = 0;
+  G.roundStartedAt = performance.now();
+  G.roundPausedMs = 0;
+  G.roundPauseAt = null;
+  Platform.gameplayStart?.();
+}
+
+function currentRoundDuration() {
+  if (G.roundStartedAt == null) return 0;
+  const openPause = G.roundPauseAt != null ? performance.now() - G.roundPauseAt : 0;
+  return Math.max(0, (performance.now() - G.roundStartedAt - G.roundPausedMs - openPause) / 1000);
 }
 
 // выстрел игрока → hitscan по призраку
@@ -537,7 +668,6 @@ function playerShoots(weaponId, origin, dir) {
     if (res.headshots > 0) Sound.headshot(); else Sound.hit();
     if (!G.ghost.alive) {
       G._lastKill = { weaponId, headshot: res.headshots > 0 };
-      onGhostDied();
     }
     return res.headshots > 0 ? 2 : 1;
   }
@@ -571,11 +701,17 @@ function ghostShoots(weaponId, origin, dir) {
 
 function onGhostDied() {
   if (G.state !== 'playing') return;
+  // playerShoots завершился, markShot уже добавлен; закрываем timeline текущим
+  // frame до encode, чтобы убийственный выстрел гарантированно воспроизводился.
+  G.player.ensureFinalReplayFrame();
   const colors = Object.values(G.skin.body);
   G.gibs.explode(G.ghost.pos, colors);
   G.score.me++;
   // лучший раунд = быстрейшая победа; сохраняем для призрака игрока
-  const dur = (performance.now() - G.roundStartAt) / 1000;
+  // Настоящее активное wall-clock время: frame-dt ограничен для физики 50 мс,
+  // но таймер челленджа не должен замедляться на слабом устройстве. Паузы
+  // вычитаются отдельно в pauseMatch/resumeMatch.
+  const dur = Math.max(1 / TICK_RATE, currentRoundDuration());
   if (!G.bestRound || dur < G.bestRound.durationSec) {
     G.bestRound = { durationSec: dur, data: G.roundRecorder.encode() };
   }
@@ -591,6 +727,7 @@ function onPlayerDied() {
 
 function endRound(playerWon) {
   G.state = 'roundend';
+  Platform.gameplayStop?.();
   G.roundEndT = 1.1; // даём кубикам разлететься
   G._roundPlayerWon = playerWon;
   if (playerWon) Sound.winRound(); else Sound.loseRound();
@@ -618,6 +755,7 @@ function afterRoundPause() {
 
 async function endMatch() {
   G.state = 'matchend';
+  Platform.gameplayStop?.();
   document.exitPointerLock?.();
   const won = G.score.me >= WINS_TO_TAKE_MATCH;
   const acc = G.matchShots ? G.matchHits / G.matchShots : 0;
@@ -626,45 +764,77 @@ async function endMatch() {
     G.playerGhost = {
       v: 1, map: G.mapId, name: 'You',
       score: `${G.score.me}:${G.score.foe}`,
+      durationSec: G.bestRound.durationSec,
       data: G.bestRound.data,
     };
-    // с пользовательской карты призрак уезжает вместе с самой картой
-    if (G.mapId === '__custom' && customMap) G.playerGhost.mapData = customMap;
-    persist();
+    // Наследуем именно фактически сыгранную embedded/custom карту, а не
+    // локальный слот редактора получателя challenge.
+    if (G.mapIsEmbedded) G.playerGhost.mapData = G.map.data;
+    await persist();
   }
-  Platform.submitScore('wins', G.score.me);
+  if (won) await Platform.recordWinAndSubmit?.('wins');
   finishTutorial(won); // если шёл туториал — завершаем (флаг + тост про вызов)
   // награда ТОЛЬКО за завершённый матч
-  G.lastReward = computeMatchReward(won, G.score.foe, G.ghostEntry, wallet);
-  applyMatchReward(wallet, G.lastReward, won);
+  const serverNow = Platform.serverTime?.();
+  const rewardNow = Number.isFinite(serverNow) ? serverNow : Date.now();
+  G.lastReward = computeMatchReward(won, G.score.foe, G.ghostEntry, wallet, rewardNow);
+  applyMatchReward(wallet, G.lastReward, won, rewardNow);
   await Platform.saveWallet(wallet);
+  const playerBestDurationSec = G.bestRound?.durationSec ?? null;
+  const timing = {
+    ownerDurationSec: G.ownerDurationSec,
+    playerBestDurationSec,
+    beatOwnerTime: G.ownerDurationSec != null && playerBestDurationSec != null
+      ? playerBestDurationSec < G.ownerDurationSec
+      : null,
+  };
   ui.showMatchScreen(G.score.me, G.score.foe, acc, won, G.ghostEntry, G.lastReward,
-    { headshots: G.matchHeadshots, bodyshots: G.matchBodyshots });
+    { headshots: G.matchHeadshots, bodyshots: G.matchBodyshots }, timing);
   Platform.showInterstitialAd('match_end'); // кулдаун 3 мин внутри Platform
 }
 
 /** Rewarded "Удвоить награду": начисляет ту же сумму ещё раз, одноразово. */
 async function doubleMatchReward() {
-  if (!G.lastReward || G.lastReward.doubled || G.lastReward.total <= 0) return false;
-  const granted = await Platform.showRewardedAd('double_match_reward');
-  if (!granted) return false;
-  G.lastReward.doubled = true;
-  wallet.coins += G.lastReward.total;
-  await Platform.saveWallet(wallet);
-  return true;
+  if (!G.lastReward || G.lastReward.doubled || G.lastReward.total <= 0 || G._doubleRewardPending) return false;
+  const reward = G.lastReward;
+  G._doubleRewardPending = true;
+  try {
+    const granted = await Platform.showRewardedAd('double_match_reward');
+    if (!granted || G.lastReward !== reward || reward.doubled) return false;
+    reward.doubled = true;
+    // Тот же bounded путь, что у основной выплаты: finite, >=0, cap 1e9.
+    applyMatchReward(wallet, reward, false);
+    await Platform.saveWallet(wallet);
+    return true;
+  } finally {
+    G._doubleRewardPending = false;
+  }
 }
 
 async function rematchRewarded() {
-  // rewarded-хук: реванш с того же счёта (заглушка всегда даёт награду)
-  const granted = await Platform.showRewardedAd('rematch_same_score');
+  // Полный честный реванш: новая серия до 5 со счёта 0:0.
+  const granted = await Platform.showRewardedAd('rematch_full_restart');
   if (!granted) return;
-  startMatch(G.mapId, G.ghostEntry, true);
+  startMatch(G.mapId, G.ghostEntry);
 }
 
 function endMatchToMenu() {
   finishTutorial(false); // вышел из туториала — считаем пропущенным
+  G.startSeq++; // отменяет ещё не завершившуюся асинхронную загрузку карты
   G.state = 'menu';
+  G.platformPaused = false;
+  Platform.gameplayStop?.();
   document.exitPointerLock?.();
+  Sound.suspend();
+  cleanupMatchEntities();
+  // Не удерживаем большой входящий replay/mapData после выхода. Собственный
+  // G.playerGhost остаётся — он является сохранением игрока и нужен меню.
+  G.ghostEntry = null;
+  G.bestRound = null;
+  G.ownerDurationSec = null;
+  G.mapIsEmbedded = false;
+  G.lastReward = null;
+  G._lastKill = null;
   ui.show('menu');
 }
 
@@ -682,10 +852,12 @@ function setLoadProgress(pct) {
 
 async function boot() {
   setLoadProgress(0.15); // модули загружены, стартуем
+  const weaponModelsReady = preloadWeaponModels();
   await Platform.initSDK();
   setLoadProgress(0.35);
   const saved = await Platform.loadPlayer();
   if (saved?.settings) Object.assign(settings, saved.settings);
+  else if (Platform.detectedLang) settings.lang = Platform.detectedLang;
   if (saved?.ghost) G.playerGhost = saved.ghost;
   setLang(settings.lang);
   Sound.setEnabled(settings.sound);
@@ -695,10 +867,14 @@ async function boot() {
   customMap = await Platform.loadCustomMap();
   wallet = await Platform.loadWallet();
   try { shop = await (await fetch('skins/shop.json')).json(); } catch { /* магазин опционален */ }
+  wallet = (await Platform.recoverPurchases?.(shop.packs ?? [], wallet)) ?? wallet;
   // активный скин: слот из редактора / купленный в магазине / стандартный
   G.skin = await resolveActiveSkin();
   setLoadProgress(0.6);
-  await ui.ghostsForMap('arena01'); // прогрев ботов стартовой карты (туториал)
+  await Promise.all([
+    ui.ghostsForMap('arena01'), // прогрев ботов стартовой карты (туториал)
+    weaponModelsReady,
+  ]);
   setLoadProgress(0.95);
 
   // принятие вызова: payload платформы или ?ghost= из URL
@@ -736,9 +912,11 @@ function tick(dt) {
   }
 
   if (G.state === 'playing') {
+    G.roundElapsed = currentRoundDuration();
     mobile.update();
     G.player.update(dt, G.pickups);
     if (G.player.alive === false && G.state === 'playing') onPlayerDied();
+    if (G.ghost.alive === false && G.state === 'playing') onGhostDied();
     if (G.state === 'playing') {
       G.ghost.update(dt, G.player);
       ui.setWeapon(WEAPONS[G.player.weapon].key);
@@ -753,10 +931,13 @@ function tick(dt) {
     if (G.roundEndT <= 0) afterRoundPause();
   }
 
-  if (G.state !== 'menu') {
+  const worldAdvances = G.state === 'countdown' || G.state === 'playing' || G.state === 'roundend';
+  if (worldAdvances) {
     for (const p of G.pickups) p.update(dt);
     G.tracers?.update(dt);
     G.gibs?.update(dt);
+  }
+  if (G.state !== 'menu') {
     // скайбокс всегда центрирован на игроке по всем 3 осям — раньше по Y был
     // фиксирован (y=20), и на высоких точках карт (башни) игрок физически
     // приближался к закрытому торцу цилиндра, тот застилал полнеба огромным

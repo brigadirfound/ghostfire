@@ -1,9 +1,16 @@
-# Builds ghostfire_yandex.zip for the Yandex Games developer console.
-# Run: powershell -File tools/pack_yandex.ps1
-$root = Split-Path $PSScriptRoot -Parent
-$out = Join-Path $root "ghostfire_yandex.zip"
-Remove-Item $out -ErrorAction SilentlyContinue
-$items = @('index.html', 'editor.html', 'js', 'maps', 'skins', 'ghosts', 'vendor', 'assets') |
-  ForEach-Object { Join-Path $root $_ }
-Compress-Archive -Path $items -DestinationPath $out
-Write-Host "Done: $out ($([math]::Round((Get-Item $out).Length / 1KB)) KB)"
+param(
+  [string]$OutputPath = "ghostfire_yandex.zip",
+  [switch]$AllowDirty
+)
+
+$projectRoot = Split-Path $PSScriptRoot -Parent
+$arguments = @((Join-Path $PSScriptRoot "pack_release.mjs"), "--output=$OutputPath")
+if ($AllowDirty) { $arguments += "--allow-dirty" }
+
+Push-Location $projectRoot
+try {
+  & node @arguments
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+  Pop-Location
+}

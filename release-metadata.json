@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "product": "ghostfire",
+  "version": "0.1.0",
+  "releaseStatus": "development",
+  "entrypoints": [
+    "index.html",
+    "editor.html"
+  ],
+  "build": {
+    "runtimeManifest": "release-manifest.json",
+    "packTool": "tools/pack_release.mjs",
+    "runtimeWhitelist": "tools/lib/runtime.mjs",
+    "reproducibility": "sorted paths, normalized commit timestamp, deterministic ZIP settings"
+  },
+  "licensing": {
+    "projectWideLicenseGrant": "none-declared",
+    "statusFile": "LICENSE",
+    "thirdPartyAndProvenance": "NOTICE.md"
+  },
+  "provenance": {
+    "skyPanoramas": "assets/skybox_candidates/PROVENANCE.md"
+  }
+}

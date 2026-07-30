@@ -10,12 +10,12 @@ import { raycastVoxels } from './map.js';
 export const PISTOL = 0, SHOTGUN = 1, RAILGUN = 2, SMG = 3, AR = 4, SNIPER = 5;
 
 export const WEAPONS = [
-  { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018 },
-  { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05, falloff: true },
-  { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.09 },
-  { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012 },
-  { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03 },
-  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.12 },
+  { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018, sound: 'pistol' },
+  { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05, falloff: true, sound: 'shotgun' },
+  { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.09, sound: 'railgun' },
+  { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012, sound: 'smg' },
+  { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03, sound: 'assault' },
+  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.12, sound: 'sniper' },
 ];
 
 // ---------- 3D-модели пушек ----------
@@ -58,7 +58,9 @@ function normalizeModel(raw, key) {
 
 function loadRawModel(key) {
   if (!_rawCache.has(key)) {
-    _rawCache.set(key, _loader.loadAsync(MODEL_URL(key)).then((gltf) => normalizeModel(gltf.scene, key)));
+    const pending = _loader.loadAsync(MODEL_URL(key)).then((gltf) => normalizeModel(gltf.scene, key));
+    _rawCache.set(key, pending);
+    pending.catch(() => { if (_rawCache.get(key) === pending) _rawCache.delete(key); });
   }
   return _rawCache.get(key);
 }
@@ -82,6 +84,8 @@ function paintClone(raw, colors) {
       emissive: srcMat?.name === 'Main' && colors.emissive ? hex : '#000000',
       emissiveIntensity: srcMat?.name === 'Main' && colors.emissive ? 0.7 : 0,
     });
+    o.userData.weaponOwnsMaterial = true;
+    o.userData.weaponOwnsGeometry = false; // geometry разделяется с raw-cache
   });
   return clone;
 }
@@ -95,6 +99,8 @@ function buildCustomModel(parts, colors) {
       new THREE.MeshLambertMaterial({ color: colors[p.color] ?? p.color }));
     m.position.set(p.pos[0], p.pos[1], p.pos[2]);
     m.castShadow = true;
+    m.userData.weaponOwnsMaterial = true;
+    m.userData.weaponOwnsGeometry = true;
     g.add(m);
   }
   return g;
@@ -106,16 +112,37 @@ function buildCustomModel(parts, colors) {
  * ссылка на группу, можно сразу добавлять в сцену/камеру).
  */
 export function buildWeaponModel(weaponId, skin) {
-  const key = WEAPONS[weaponId].key;
-  const colors = skin.weapons[key] ?? {};
-  const custom = skin.models?.[key];
+  const weapon = WEAPONS[weaponId];
+  if (!weapon) return new THREE.Group();
+  const key = weapon.key;
+  const colors = skin?.weapons?.[key] ?? {};
+  const custom = skin?.models?.[key];
   if (custom) return buildCustomModel(custom, colors);
 
   const holder = new THREE.Group();
+  holder.userData.weaponHolder = true;
   loadRawModel(key).then((raw) => {
-    holder.add(paintClone(raw, colors));
+    const painted = paintClone(raw, colors);
+    if (holder.userData.disposed) disposeWeaponModel(painted);
+    else holder.add(painted);
   }).catch((e) => console.warn(`[weapons] модель "${key}" не загрузилась`, e));
   return holder;
+}
+
+/** Освобождает только ресурсы клона, не трогая geometry общего raw-cache. */
+export function disposeWeaponModel(root) {
+  if (!root) return;
+  root.userData.disposed = true;
+  const geometries = new Set(), materials = new Set();
+  root.traverse((o) => {
+    if (o.userData.weaponOwnsGeometry && o.geometry) geometries.add(o.geometry);
+    if (!o.userData.weaponOwnsMaterial || !o.material) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach(m => materials.add(m));
+  });
+  materials.forEach(m => m.dispose());
+  geometries.forEach(g => g.dispose());
+  root.clear();
 }
 
 /** Прогрев кеша моделей — вызывается на загрузке игры, чтобы первый подбор не лагал. */
@@ -159,6 +186,11 @@ export class Pickup {
     this.mesh.visible = false;
     return true;
   }
+
+  dispose(scene) {
+    scene?.remove(this.mesh);
+    disposeWeaponModel(this.mesh);
+  }
 }
 
 /** Пул трассеров: тонкие вытянутые боксы, гаснут за ~0.12с (рейл — дольше). */
@@ -197,6 +229,13 @@ export class TracerPool {
       it.mesh.material.opacity = 0.9 * (it.life / it.maxLife);
     }
   }
+
+  clear() {
+    for (const it of this.items) {
+      it.life = 0;
+      it.mesh.visible = false;
+    }
+  }
 }
 
 const _ray = new THREE.Ray();
@@ -210,6 +249,7 @@ const _hitPoint = new THREE.Vector3();
  */
 export function fireHitscan(map, origin, baseDir, weaponId, targets, rng = Math.random) {
   const w = WEAPONS[weaponId];
+  if (!w) return { tracerEnds: [], hits: 0, headshots: 0 };
   const tracerEnds = [];
   let hits = 0, headshots = 0;
   for (let p = 0; p < w.pellets; p++) {

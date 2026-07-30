@@ -1,7 +1,7 @@
 // FPS-контроллер: резкое аркадное движение без инерции, распрыжка разрешена.
 import * as THREE from 'three';
 import { moveAABB } from './map.js';
-import { WEAPONS, RAILGUN, buildWeaponModel } from './weapons.js';
+import { WEAPONS, RAILGUN, buildWeaponModel, disposeWeaponModel } from './weapons.js';
 import { Sound } from './audio.js';
 
 export const MOVE = {
@@ -100,8 +100,13 @@ export class Player {
     window.removeEventListener('keydown', this._onDown);
     window.removeEventListener('keyup', this._onUp);
     window.removeEventListener('blur', this._onBlur);
-    this.viewModels.forEach(m => this.camera.remove(m));
+    this.viewModels.forEach(m => {
+      this.camera.remove(m);
+      disposeWeaponModel(m);
+    });
     this.camera.remove(this.hand);
+    disposeObject(this.hand);
+    this.recorder = null;
   }
 
   spawn(spawnPoint) {
@@ -116,15 +121,21 @@ export class Player {
     this.cooldown = 0;
     this.charge = 0;
     this.charging = false;
+    this.recoilPitch = 0;
+    this._vmKick = 0;
+    this.input.fire = false;
+    this.input.jump = false;
     this.shotsFired = 0;
     this.shotsHit = 0;
   }
 
   setWeapon(id) {
+    if (!WEAPONS[id]) return false;
     this.weapon = id;
     this.viewModels.forEach((m, i) => (m.visible = i === id));
     this.charge = 0;
     this.charging = false;
+    return true;
   }
 
   addLook(dx, dy) {
@@ -237,9 +248,7 @@ export class Player {
     this.recoilPitch += w.recoil;
     this._vmKick = 0.09;
     this.shotsFired++;
-    if (w.id === 0) Sound.pistol();
-    else if (w.id === 1) Sound.shotgun();
-    else Sound.railgun();
+    Sound[w.sound]?.();
     const origin = this.getEyePos();
     const dir = this.getAimDir();
     // onFire возвращает 0 мимо / 1 тело / 2 голова — для записи профиля меткости
@@ -248,5 +257,25 @@ export class Player {
     this.recorder?.markShot(w.id, hit);
   }
 
+  /** Закрывает timeline текущим состоянием перед синхронным encode(). */
+  ensureFinalReplayFrame() {
+    return this.recorder?.ensureFinalFrame(this.pos, this.yaw, this.pitch, this.weapon) ?? false;
+  }
+
   get accuracy() { return this.shotsFired ? this.shotsHit / this.shotsFired : 0; }
+}
+
+function disposeObject(root) {
+  const geometries = new Set(), materials = new Set(), textures = new Set();
+  root.traverse((o) => {
+    if (o.geometry) geometries.add(o.geometry);
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const mat of mats) {
+      materials.add(mat);
+      if (mat.map) textures.add(mat.map);
+    }
+  });
+  textures.forEach(t => t.dispose());
+  materials.forEach(m => m.dispose());
+  geometries.forEach(g => g.dispose());
 }

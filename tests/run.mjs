@@ -1,0 +1,179 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { STRINGS, localizedName, resolveLanguage, setLang } from '../js/i18n.js';
+import { Sound } from '../js/audio.js';
+import { createSeededRandom } from '../tools/lib/prng.mjs';
+import { collectRuntimeFiles, createRuntimeManifest, isRuntimePath } from '../tools/lib/runtime.mjs';
+import { createDeterministicZip } from '../tools/lib/zip.mjs';
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+const tests = [];
+const test = (name, run) => tests.push({ name, run });
+
+test('RU and EN expose the same translation keys', () => {
+  assert.deepEqual(Object.keys(STRINGS.ru).sort(), Object.keys(STRINGS.en).sort());
+  for (const key of Object.keys(STRINGS.ru)) assert.equal(typeof STRINGS.ru[key], typeof STRINGS.en[key], key);
+});
+
+test('shop rendering selects localized skin names by stable id', () => {
+  const shop = JSON.parse(readFileSync(new URL('../skins/shop.json', import.meta.url), 'utf8'));
+  setLang('en-US');
+  for (const item of shop.skins) {
+    assert.equal(localizedName('skin', item.id), STRINGS.en[`skin_${item.id}`], item.id);
+    assert.notEqual(localizedName('skin', item.id), item.name, `${item.id} fell back to raw catalog name`);
+  }
+  assert.equal(localizedName('ghost', 'ghost_inferno'), 'Inferno');
+  const uiSource = readFileSync(new URL('../js/ui.js', import.meta.url), 'utf8');
+  assert.match(uiSource, /localizedName\(\s*['"]skin['"]\s*,\s*item\.id\s*\)/);
+  assert.doesNotMatch(uiSource, /translatedOr\(\s*`skin_\$\{item\.id\}`\s*,\s*item\.name\s*\)/);
+  setLang('ru');
+});
+
+test('opponent cards localize stable ghost ids and map cards use locale keys', () => {
+  const ghostIds = ['shadow', 'smoke', 'phantom', 'mirage', 'inferno'];
+  setLang('en');
+  for (const id of ghostIds) assert.equal(localizedName('ghost', id), STRINGS.en[`ghost_${id}`], id);
+  const uiSource = readFileSync(new URL('../js/ui.js', import.meta.url), 'utf8');
+  assert.match(uiSource, /localizedName\(\s*['"]ghost['"]\s*,\s*BUILTIN_GHOSTS\[i\]\s*\)/);
+  assert.match(uiSource, /addCard\(id,\s*t\(`map_\$\{id\}`\),\s*t\(`map_\$\{id\}_desc`\)\)/);
+  setLang('ru');
+});
+
+test('editor language resolution includes the persisted player setting', () => {
+  assert.equal(resolveLanguage(null, 'en', 'ru'), 'en');
+  assert.equal(resolveLanguage(undefined, 'en-US'), 'en');
+  assert.equal(resolveLanguage('xx', 'ru-RU'), 'ru');
+  const editorSource = readFileSync(new URL('../js/editor.js', import.meta.url), 'utf8');
+  assert.match(editorSource, /await Platform\.loadPlayer\(\)/);
+  assert.match(editorSource, /resolveLanguage\(savedPlayerLanguage, savedLanguage, Platform\.detectedLang\)/);
+  assert.match(editorSource, /Platform\.savePlayer\(nextPlayer\)/);
+});
+
+test('editor flex layout keeps controls clickable beside the WebGL canvas', () => {
+  const html = readFileSync(new URL('../editor.html', import.meta.url), 'utf8');
+  assert.match(html, /\.tools\s*\{[^}]*min-width:\s*var\(--tools-width\)[^}]*flex:\s*0 0 var\(--tools-width\)/s);
+  assert.match(html, /canvas\.view\s*\{[^}]*width:\s*0[^}]*min-width:\s*0[^}]*flex:\s*1 1 0/s);
+});
+
+test('editor built-in buttons are wired and boot cannot overwrite a user map action', () => {
+  const source = readFileSync(new URL('../js/editor.js', import.meta.url), 'utf8');
+  assert.match(source, /btn-load1[^\n]+loadBuiltin\(['"]arena01['"]\)/);
+  assert.match(source, /const revision = \+\+mapRevision/);
+  assert.match(source, /revision !== mapRevision/);
+  assert.match(source, /const initialMapRevision = mapRevision/);
+  assert.match(source, /initialMapRevision === mapRevision/);
+});
+
+test('seeded generator is repeatable and seed-sensitive', () => {
+  const first = createSeededRandom('arena01:d1');
+  const second = createSeededRandom('arena01:d1');
+  const different = createSeededRandom('arena01:d2');
+  const a = Array.from({ length: 16 }, first);
+  assert.deepEqual(a, Array.from({ length: 16 }, second));
+  assert.notDeepEqual(a, Array.from({ length: 16 }, different));
+  assert.ok(a.every((value) => value >= 0 && value < 1));
+});
+
+test('ghost generator has no ambient Math.random calls', () => {
+  const source = readFileSync(new URL('../tools/gen_ghosts.mjs', import.meta.url), 'utf8');
+  assert.equal(source.includes('Math.random'), false);
+});
+
+test('audio stopAll cancels active sources without replacing the context', () => {
+  const sources = [];
+  let contexts = 0;
+  class Param {
+    constructor() { this.value = 0; }
+    setValueAtTime(value) { this.value = value; }
+    exponentialRampToValueAtTime(value) { this.value = value; }
+  }
+  class Node {
+    connect(next) { return next; }
+    disconnect() { this.disconnects = (this.disconnects ?? 0) + 1; }
+  }
+  class Source extends Node {
+    constructor() {
+      super();
+      this.frequency = new Param();
+      this.stopCalls = 0;
+      sources.push(this);
+    }
+    addEventListener() {}
+    start() {}
+    stop() { this.stopCalls++; }
+  }
+  class FakeAudioContext {
+    constructor() {
+      contexts++;
+      this.currentTime = 0; this.sampleRate = 8_000; this.state = 'running'; this.destination = new Node();
+    }
+    createGain() { const node = new Node(); node.gain = new Param(); return node; }
+    createOscillator() { return new Source(); }
+    createBufferSource() { return new Source(); }
+    createBiquadFilter() { const node = new Node(); node.frequency = new Param(); return node; }
+    createBuffer(_channels, length) { return { getChannelData: () => new Float32Array(length) }; }
+    suspend() { this.state = 'suspended'; }
+    resume() { this.state = 'running'; }
+  }
+  globalThis.window = { AudioContext: FakeAudioContext };
+  Sound.init();
+  Sound.pistol();
+  Sound.smg();
+  Sound.assault();
+  Sound.sniper();
+  assert.equal(sources.length, 9); // 2 + 2 + 2 + 3 tracked layers
+  Sound.stopAll();
+  assert.ok(sources.every((source) => source.stopCalls >= 1 && source.disconnects === 1));
+  Sound.init();
+  assert.equal(contexts, 1);
+  const stops = sources.map((source) => source.stopCalls);
+  Sound.stopAll();
+  assert.deepEqual(sources.map((source) => source.stopCalls), stops);
+  delete globalThis.window;
+});
+
+test('runtime whitelist excludes tools and includes referenced arena skies', () => {
+  assert.equal(isRuntimePath('js/game.js'), true);
+  assert.equal(isRuntimePath('tools/pack_release.mjs'), false);
+  assert.equal(isRuntimePath('assets/skybox_candidates/candidate_1.jpg'), true);
+  assert.equal(isRuntimePath('assets/skybox_candidates/PROVENANCE.md'), true);
+  const files = collectRuntimeFiles(root);
+  assert.ok(files.includes('index.html'));
+  assert.ok(files.includes('LICENSE'));
+  assert.equal(files.some((file) => file.startsWith('tools/')), false);
+});
+
+test('runtime manifest carries exact file checksums', () => {
+  const manifest = createRuntimeManifest(root, {
+    version: 'test', commit: 'abc', dirty: false, sourceDateEpoch: 1_700_000_000,
+  });
+  assert.equal(manifest.files.length, collectRuntimeFiles(root).length);
+  assert.ok(manifest.files.every((file) => /^[0-9a-f]{64}$/.test(file.sha256) && file.bytes > 0));
+});
+
+test('ZIP output is deterministic for normalized inputs', () => {
+  const entries = [
+    { path: 'b.txt', data: Buffer.from('second') },
+    { path: 'a.txt', data: Buffer.from('first') },
+  ];
+  const first = createDeterministicZip(entries, 1_700_000_000);
+  const second = createDeterministicZip([...entries].reverse(), 1_700_000_000);
+  assert.deepEqual(first, second);
+  assert.equal(first.readUInt32LE(0), 0x04034b50);
+  assert.equal(first.readUInt32LE(first.length - 22), 0x06054b50);
+});
+
+let failures = 0;
+for (const { name, run } of tests) {
+  try {
+    await run();
+    console.log(`ok - ${name}`);
+  } catch (error) {
+    failures++;
+    console.error(`not ok - ${name}`);
+    console.error(error);
+  }
+}
+if (failures) process.exit(1);
+console.log(`${tests.length} unit checks passed`);

@@ -3,6 +3,10 @@
 // Запуск: node tools/gen_ghosts.mjs
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { Recorder, TICK_RATE } from '../js/replay.js';
+import { createSeededRandom } from './lib/prng.mjs';
+
+const seedArg = process.argv.find((arg) => arg.startsWith('--seed='));
+const BASE_SEED = seedArg?.slice('--seed='.length) || 'ghostfire-v1';
 
 const mapCache = {};
 function loadMap(id) {
@@ -22,7 +26,7 @@ function groundY(map, x, z) {
 }
 
 /** Синтез записи: движение по вэйпоинтам со стрейфом, прыжки, стрельба. */
-function synthGhost(mapId, waypoints, d) {
+export function synthGhost(mapId, waypoints, d, random) {
   const map = loadMap(mapId);
   const rec = new Recorder(TICK_RATE);
   const dt = 1 / TICK_RATE;
@@ -63,7 +67,7 @@ function synthGhost(mapId, waypoints, d) {
     jumpT -= dt;
     if (jumpT <= 0 && !airborne) {
       airborne = true; vy = jumpVel;
-      jumpT = d.jumpEvery * (0.7 + Math.random() * 0.6);
+      jumpT = d.jumpEvery * (0.7 + random() * 0.6);
       rec.markJump();
     }
     const gy = groundY(map, pos.x, pos.z);
@@ -79,14 +83,14 @@ function synthGhost(mapId, waypoints, d) {
       rec.markPickup(weapon);
     }
 
-    const yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.06;
-    const pitch = (Math.random() - 0.5) * 0.1;
+    const yaw = Math.atan2(-dx, -dz) + (random() - 0.5) * 0.06;
+    const pitch = (random() - 0.5) * 0.1;
     rec.frames.push({ x: pos.x, y, z: pos.z, yaw, pitch, flags: (weapon & 7) << 1 });
 
     fireT -= dt;
     if (fireT <= 0) {
-      fireT = d.fireEvery * (0.6 + Math.random() * 0.8);
-      const roll = Math.random();
+      fireT = d.fireEvery * (0.6 + random() * 0.8);
+      const roll = random();
       const hit = roll < d.accuracy * d.headRate ? 2 : roll < d.accuracy ? 1 : 0;
       rec.shots.push({ tick, weapon, hit });
     }
@@ -110,19 +114,26 @@ export const WAYPOINTS = {
 
 // ---------- 5 сложностей (личности одни на всех картах) ----------
 export const DIFFICULTIES = [
-  { name: 'Тень',    speed: 4.5, jumpEvery: 4.0, strafe: 0.15, accuracy: 0.25, headRate: 0.08, fireEvery: 2.2, pickupAtSec: [] },
-  { name: 'Дымок',   speed: 5.5, jumpEvery: 3.0, strafe: 0.3,  accuracy: 0.35, headRate: 0.12, fireEvery: 1.7, pickupAtSec: [6] },
-  { name: 'Фантом',  speed: 6.5, jumpEvery: 2.2, strafe: 0.45, accuracy: 0.5,  headRate: 0.18, fireEvery: 1.3, pickupAtSec: [5, 20] },
-  { name: 'Мираж',   speed: 7.5, jumpEvery: 1.6, strafe: 0.6,  accuracy: 0.62, headRate: 0.25, fireEvery: 1.0, pickupAtSec: [4, 15] },
-  { name: 'Инферно', speed: 8,   jumpEvery: 1.2, strafe: 0.75, accuracy: 0.75, headRate: 0.35, fireEvery: 0.8, pickupAtSec: [3, 14, 25] },
+  { name: 'ghost_shadow',  speed: 4.5, jumpEvery: 4.0, strafe: 0.15, accuracy: 0.25, headRate: 0.08, fireEvery: 2.2, pickupAtSec: [] },
+  { name: 'ghost_smoke',   speed: 5.5, jumpEvery: 3.0, strafe: 0.3,  accuracy: 0.35, headRate: 0.12, fireEvery: 1.7, pickupAtSec: [6] },
+  { name: 'ghost_phantom', speed: 6.5, jumpEvery: 2.2, strafe: 0.45, accuracy: 0.5,  headRate: 0.18, fireEvery: 1.3, pickupAtSec: [5, 20] },
+  { name: 'ghost_mirage',  speed: 7.5, jumpEvery: 1.6, strafe: 0.6,  accuracy: 0.62, headRate: 0.25, fireEvery: 1.0, pickupAtSec: [4, 15] },
+  { name: 'ghost_inferno', speed: 8,   jumpEvery: 1.2, strafe: 0.75, accuracy: 0.75, headRate: 0.35, fireEvery: 0.8, pickupAtSec: [3, 14, 25] },
 ];
 
 mkdirSync(new URL('../ghosts/', import.meta.url), { recursive: true });
 for (const [mapId, waypoints] of Object.entries(WAYPOINTS)) {
   DIFFICULTIES.forEach((d, i) => {
-    const rec = synthGhost(mapId, waypoints, d);
-    const entry = { v: 1, map: mapId, name: d.name, data: rec.encode() };
-    writeFileSync(new URL(`../ghosts/${mapId}_d${i + 1}.json`, import.meta.url), JSON.stringify(entry));
+    const contentSeed = `${BASE_SEED}:${mapId}:d${i + 1}`;
+    const rec = synthGhost(mapId, waypoints, d, createSeededRandom(contentSeed));
+    const entry = {
+      v: 1,
+      map: mapId,
+      name: d.name,
+      data: rec.encode(),
+      generator: { id: 'gen_ghosts', seed: contentSeed },
+    };
+    writeFileSync(new URL(`../ghosts/${mapId}_d${i + 1}.json`, import.meta.url), `${JSON.stringify(entry)}\n`);
     console.log(`${mapId}_d${i + 1}.json — ${d.name}, ${rec.frames.length} frames, ${rec.shots.length} shots`);
   });
 }

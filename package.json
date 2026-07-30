@@ -1,0 +1,20 @@
+{
+  "name": "ghostfire",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check:syntax": "node tools/check_syntax.mjs",
+    "check:data": "node tools/check_data.mjs",
+    "check:maps": "node tools/check_maps.mjs && node tools/check_pickups.mjs",
+    "check:replay": "node tools/check_replay.mjs",
+    "check:validation": "node tools/check_validation.mjs",
+    "test:unit": "node tests/run.mjs",
+    "test": "node tools/check_all.mjs",
+    "stage": "node tools/stage_runtime.mjs",
+    "pack": "node tools/pack_release.mjs"
+  }
+}

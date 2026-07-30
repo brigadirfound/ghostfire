@@ -1,6 +1,8 @@
 // I18N — все строки интерфейса. ru — дефолт, en — запасной.
 export const STRINGS = {
   ru: {
+    gameTitle: 'GHOSTFIRE',
+    editorTitle: 'GHOSTFIRE — Редактор',
     play: 'Играть',
     challenges: 'Вызовы',
     settings: 'Настройки',
@@ -29,7 +31,7 @@ export const STRINGS = {
     accuracy: 'Точность',
     playAgain: 'Ещё раз',
     inviteFriend: 'Вызвать друга',
-    rematchAd: 'Реванш с того же счёта',
+    rematchAd: 'Полный реванш за рекламу',
     copied: 'Скопировано! Отправь другу',
     acceptChallenge: 'Принять вызов',
     pasteCode: 'Вставь код призрака сюда',
@@ -60,6 +62,8 @@ export const STRINGS = {
     tapToStart: 'Клик — захват мыши',
     menuHint: 'ESC — меню',
     pause: 'Пауза',
+    fire: 'Огонь',
+    jump: 'Прыжок',
     resume: 'Продолжить',
     exitMatch: 'Выйти в меню',
     editor: 'Редактор',
@@ -83,7 +87,7 @@ export const STRINGS = {
     rewardFriend: 'Призрак друга побеждён',
     rewardFirstWin: 'Первая победа дня ×2',
     rewardTotal: 'Итого',
-    rewardDouble: 'Удвоить награду',
+    rewardDouble: 'Удвоить награду за рекламу',
     rewardLimit: 'Дневной лимит наград за этого призрака',
     map_custom: 'Своя карта',
     map_custom_desc: 'Создана в редакторе',
@@ -95,14 +99,132 @@ export const STRINGS = {
     equipped: 'Надет',
     notEnoughCoins: 'Не хватает госткоинов',
     skinDefault: 'Стандарт',
+    skin_neon: 'Неон',
+    skin_gold: 'Золото',
+    skin_forest: 'Лес',
+    skin_void: 'Пустота',
+    skin_crimson: 'Багрянец',
+    ghost_shadow: 'Тень',
+    ghost_smoke: 'Дым',
+    ghost_phantom: 'Фантом',
+    ghost_mirage: 'Мираж',
+    ghost_inferno: 'Инферно',
+    ownerTime: 'Время владельца',
+    yourBestTime: 'Твоё лучшее время',
+    beatOwnerTime: 'Время владельца побито!',
+    purchaseFailed: 'Покупка не завершена',
+    purchasePending: 'Покупка обрабатывается',
+    paymentLoading: 'Загрузка товаров…',
+    productUnavailable: 'Товар сейчас недоступен',
+    paymentError: 'Платёж не завершён',
+    copyFailed: 'Не удалось скопировать',
     yan: 'Ян',
     killfeedWin: (weapon, zone) => `Фраг · ${weapon} · ${zone}`,
     killfeedLose: (weapon, zone) => `Тебя убили · ${weapon} · ${zone}`,
     zoneHead: 'ГОЛОВА',
     zoneBody: 'тело',
     headshots: 'Хедшоты',
+
+    diffEasy: 'Лёгкий',
+    diffNormal: 'Средний',
+    diffHard: 'Сложный',
+
+    maskSkull: 'Череп',
+    maskRobot: 'Робот',
+    maskNinja: 'Ниндзя',
+    maskDemon: 'Демон',
+    maskSmile: 'Смайл',
+    maskClown: 'Клоун',
+
+    partHead: 'Голова',
+    partTorso: 'Торс',
+    partArms: 'Руки',
+    partLegs: 'Ноги',
+    partBody: 'Корпус',
+    partGrip: 'Рукоять',
+    partAccent: 'Акцент',
+    partWood: 'Дерево',
+    partGlow: 'Свечение',
+    partTracer: 'Трассер',
+    partRailTracer: 'След рейла',
+    partGhostTint: 'Оттенок призрака',
+
+    eraserOn: 'Ластик: ВКЛ',
+    eraserOff: 'Ластик: выкл',
+    imageOnFace: 'Картинка встала на лицо',
+    imageOnTorso: 'Картинка встала на торс',
+    imageUnsupported: 'Поддерживаются PNG, JPEG, WebP и GIF',
+    imageTooLarge: 'Картинка слишком большая (максимум 5 МБ)',
+    imageLoadFailed: 'Не удалось прочитать картинку',
+    skinApplied: 'Скин применён — увидишь в игре',
+    skinDraftSaved: 'Черновик сохранён. Слот «Свой скин» открывается в магазине за 300 👻',
+    skinReset: 'Сброшено к стандарту',
+    skinSaveFailed: 'Не удалось сохранить скин',
+    skinEquipFailed: 'Скин сохранён, но не удалось его надеть',
+    skinLoadFailed: '3D-превью скина не загрузилось',
+
+    editorGame: '← Игра',
+    editorMapTab: 'Редактор карт',
+    editorSkinTab: 'Редактор скинов',
+    editorMapPreview: 'Предпросмотр карты',
+    editorSkinPreview: 'Предпросмотр скина',
+    edTools: 'Инструменты',
+    edToolPlace: '🧱 Блок (ЛКМ — ставить)',
+    edToolErase: '❌ Стереть',
+    edSpawnPlayer: '🔵 Спавн игрока',
+    edSpawnGhost: '🔴 Спавн призрака',
+    edWeaponShotgun: '🔫 Дробовик',
+    edWeaponRailgun: '⚡ Рейлган',
+    edWeaponSmg: '💥 ПП',
+    edWeaponAr: '🎯 Автомат',
+    edWeaponSniper: '🔭 Снайперка',
+    edBlockColor: 'Цвет блока',
+    edMap: 'Карта',
+    edNew: 'Новая 24×24',
+    edOpenArena01: 'Открыть «Тесная арена»',
+    edOpenArena02: 'Открыть «Два уровня»',
+    edExchange: 'Обмен',
+    edCodePlaceholder: 'Код карты для импорта/экспорта',
+    edImport: 'Импорт из кода',
+    edExport: 'Экспорт в код',
+    edDownload: 'Скачать JSON',
+    edSaveGame: '💾 Сохранить в игру',
+    edMapHint: 'Вращение — ПКМ-драг, зум — колесо, панорама — СКМ. Блоки ставятся кликом по грани. Для игры нужны оба спавна. Сохранённая карта появится в игре как «Своя карта».',
+    skinArtHeading: 'Маска и одежда',
+    skinTargetFace: 'Лицо / маска',
+    skinTargetTorso: 'Одежда (торс)',
+    clear: 'Очистить',
+    uploadImage: '📷 Загрузить картинку',
+    skinArtHint: 'Рисуй мышью или пальцем по сетке. Картинка сожмётся в пиксель-арт 16×16 и встанет на лицо или торс.',
+    character: 'Персонаж',
+    effects: 'Эффекты',
+    applySkin: '💾 Применить скин',
+    resetSkin: 'Сбросить к стандарту',
+    skinHint: 'Скин применяется к твоему персонажу, призракам и пушкам. Он сохраняется в том же облачном слоте, что использует игра.',
+
+    edNewMap: 'Новая карта 24×24',
+    edLoaded: 'Загружена',
+    edExported: 'Код в поле выше — копируй и делись',
+    edImported: 'Карта импортирована',
+    edBadCode: 'Не удалось прочитать код',
+    edNeedSpawns: 'Расставь оба спавна (🔵 и 🔴)',
+    edNeedWeapons: 'Поставь хотя бы одну точку оружия',
+    edSaved: 'Сохранено! В игре появилась своя карта',
+    edSaveFailed: 'Не удалось сохранить карту',
+    edLoadFailed: 'Не удалось загрузить карту',
+    edPlatformFailed: 'Платформенные сервисы недоступны — включён локальный режим',
+    edMapTooLarge: 'Карта слишком большая для кода обмена',
+    edInvalidMap: 'Карта пока не готова: проверь блоки, спавны и оружие',
+    edMapSpanLimit: 'Размер карты по X/Z не может превышать 96 блоков',
+    edOutOfBounds: 'Точка за пределами редактора',
+    edBlockLimit: 'Достигнут лимит блоков',
+    edWeaponLimit: 'Достигнут лимит точек оружия',
+    edBlockType: 'Блок',
+    edColor: 'цвет',
   },
   en: {
+    gameTitle: 'GHOSTFIRE',
+    editorTitle: 'GHOSTFIRE — Editor',
     play: 'Play',
     challenges: 'Challenges',
     settings: 'Settings',
@@ -131,7 +253,7 @@ export const STRINGS = {
     accuracy: 'Accuracy',
     playAgain: 'Play again',
     inviteFriend: 'Challenge a friend',
-    rematchAd: 'Rematch from this score',
+    rematchAd: 'Full rematch, watch ad',
     copied: 'Copied! Send it to a friend',
     acceptChallenge: 'Accept challenge',
     pasteCode: 'Paste ghost code here',
@@ -162,6 +284,8 @@ export const STRINGS = {
     tapToStart: 'Click to lock mouse',
     menuHint: 'ESC — menu',
     pause: 'Paused',
+    fire: 'Fire',
+    jump: 'Jump',
     resume: 'Resume',
     exitMatch: 'Exit to menu',
     editor: 'Editor',
@@ -185,7 +309,7 @@ export const STRINGS = {
     rewardFriend: 'Friend ghost beaten',
     rewardFirstWin: 'First win of the day ×2',
     rewardTotal: 'Total',
-    rewardDouble: 'Double reward',
+    rewardDouble: 'Double reward, watch ad',
     rewardLimit: 'Daily reward limit for this ghost',
     map_custom: 'Custom map',
     map_custom_desc: 'Made in the editor',
@@ -197,19 +321,193 @@ export const STRINGS = {
     equipped: 'Equipped',
     notEnoughCoins: 'Not enough GhostCoins',
     skinDefault: 'Default',
+    skin_neon: 'Neon',
+    skin_gold: 'Gold',
+    skin_forest: 'Forest',
+    skin_void: 'Void',
+    skin_crimson: 'Crimson',
+    ghost_shadow: 'Shadow',
+    ghost_smoke: 'Smoke',
+    ghost_phantom: 'Phantom',
+    ghost_mirage: 'Mirage',
+    ghost_inferno: 'Inferno',
+    ownerTime: 'Owner time',
+    yourBestTime: 'Your best time',
+    beatOwnerTime: 'Owner time beaten!',
+    purchaseFailed: 'Purchase could not be completed',
+    purchasePending: 'Purchase is being processed',
+    paymentLoading: 'Loading products…',
+    productUnavailable: 'This product is currently unavailable',
+    paymentError: 'Payment could not be completed',
+    copyFailed: 'Could not copy',
     yan: 'Yan',
     killfeedWin: (weapon, zone) => `Kill · ${weapon} · ${zone}`,
     killfeedLose: (weapon, zone) => `You were killed · ${weapon} · ${zone}`,
     zoneHead: 'HEADSHOT',
     zoneBody: 'body',
     headshots: 'Headshots',
+
+    diffEasy: 'Easy',
+    diffNormal: 'Normal',
+    diffHard: 'Hard',
+
+    maskSkull: 'Skull',
+    maskRobot: 'Robot',
+    maskNinja: 'Ninja',
+    maskDemon: 'Demon',
+    maskSmile: 'Smiley',
+    maskClown: 'Clown',
+
+    partHead: 'Head',
+    partTorso: 'Torso',
+    partArms: 'Arms',
+    partLegs: 'Legs',
+    partBody: 'Body',
+    partGrip: 'Grip',
+    partAccent: 'Accent',
+    partWood: 'Wood',
+    partGlow: 'Glow',
+    partTracer: 'Tracer',
+    partRailTracer: 'Rail trail',
+    partGhostTint: 'Ghost tint',
+
+    eraserOn: 'Eraser: ON',
+    eraserOff: 'Eraser: off',
+    imageOnFace: 'Image applied to the face',
+    imageOnTorso: 'Image applied to the torso',
+    imageUnsupported: 'Use a PNG, JPEG, WebP, or GIF image',
+    imageTooLarge: 'Image is too large (5 MB maximum)',
+    imageLoadFailed: 'Could not read the image',
+    skinApplied: 'Skin applied — you will see it in game',
+    skinDraftSaved: 'Draft saved. The custom skin slot unlocks in the shop for 300 👻',
+    skinReset: 'Reset to default',
+    skinSaveFailed: 'Could not save the skin',
+    skinEquipFailed: 'Skin was saved but could not be equipped',
+    skinLoadFailed: 'The 3D skin preview could not be loaded',
+
+    editorGame: '← Game',
+    editorMapTab: 'Map editor',
+    editorSkinTab: 'Skin editor',
+    editorMapPreview: 'Map preview',
+    editorSkinPreview: 'Skin preview',
+    edTools: 'Tools',
+    edToolPlace: '🧱 Block (left click to place)',
+    edToolErase: '❌ Erase',
+    edSpawnPlayer: '🔵 Player spawn',
+    edSpawnGhost: '🔴 Ghost spawn',
+    edWeaponShotgun: '🔫 Shotgun',
+    edWeaponRailgun: '⚡ Railgun',
+    edWeaponSmg: '💥 SMG',
+    edWeaponAr: '🎯 Rifle',
+    edWeaponSniper: '🔭 Sniper',
+    edBlockColor: 'Block colour',
+    edMap: 'Map',
+    edNew: 'New 24×24',
+    edOpenArena01: 'Open “Tight Arena”',
+    edOpenArena02: 'Open “Two Levels”',
+    edExchange: 'Share',
+    edCodePlaceholder: 'Map code to import or export',
+    edImport: 'Import from code',
+    edExport: 'Export to code',
+    edDownload: 'Download JSON',
+    edSaveGame: '💾 Save to game',
+    edMapHint: 'Rotate with right-drag, zoom with the wheel, and pan with middle-drag. Click a face to place a block. A playable map needs both spawns. Saved maps appear in the game as “Custom map”.',
+    skinArtHeading: 'Mask and clothing',
+    skinTargetFace: 'Face / mask',
+    skinTargetTorso: 'Clothing (torso)',
+    clear: 'Clear',
+    uploadImage: '📷 Upload image',
+    skinArtHint: 'Draw on the grid with a mouse or finger. An uploaded image is reduced to 16×16 pixel art and applied to the face or torso.',
+    character: 'Character',
+    effects: 'Effects',
+    applySkin: '💾 Apply skin',
+    resetSkin: 'Reset to default',
+    skinHint: 'The skin applies to your character, ghosts, and weapons. It is saved in the same cloud slot used by the game.',
+
+    edNewMap: 'New map 24×24',
+    edLoaded: 'Loaded',
+    edExported: 'The code is in the field above — copy and share',
+    edImported: 'Map imported',
+    edBadCode: 'Could not read the code',
+    edNeedSpawns: 'Place both spawns (🔵 and 🔴)',
+    edNeedWeapons: 'Place at least one weapon point',
+    edSaved: 'Saved! Your custom map is now in the game',
+    edSaveFailed: 'Could not save the map',
+    edLoadFailed: 'Could not load the map',
+    edPlatformFailed: 'Platform services are unavailable — using local mode',
+    edMapTooLarge: 'This map is too large for a share code',
+    edInvalidMap: 'The map is not ready: check its blocks, spawns, and weapons',
+    edMapSpanLimit: 'The map cannot span more than 96 blocks on X/Z',
+    edOutOfBounds: 'That point is outside the editor bounds',
+    edBlockLimit: 'The block limit has been reached',
+    edWeaponLimit: 'The weapon-point limit has been reached',
+    edBlockType: 'Block',
+    edColor: 'colour',
   },
 };
 
 let lang = 'ru';
-export function setLang(l) { if (STRINGS[l]) lang = l; }
+const supportedLanguage = (value) => {
+  const normalized = String(value ?? '').toLowerCase().split(/[-_]/)[0];
+  return STRINGS[normalized] ? normalized : null;
+};
+
+/** Pick the first supported locale from persisted override, player save, and SDK hints. */
+export function resolveLanguage(...candidates) {
+  for (const candidate of candidates) {
+    const normalized = supportedLanguage(candidate);
+    if (normalized) return normalized;
+  }
+  return 'ru';
+}
+
+export function setLang(value) {
+  const normalized = supportedLanguage(value);
+  if (normalized) lang = normalized;
+  applyDocumentTranslations();
+}
+// Заголовок вкладки обязан совпадать с названием в карточке текущей локали (п. 5.1.3).
+export function applyTitle() {
+  try {
+    const key = document.documentElement.dataset.titleKey || 'gameTitle';
+    document.title = t(key);
+  } catch {}
+}
+export function applyDocumentTranslations(root = globalThis.document) {
+  try {
+    const doc = globalThis.document;
+    if (!doc || !root) return;
+    doc.documentElement.lang = lang;
+    const all = (selector) => root.querySelectorAll?.(selector) ?? [];
+    for (const element of all('[data-i18n]')) element.textContent = t(element.dataset.i18n);
+    for (const element of all('[data-i18n-placeholder]')) {
+      element.setAttribute('placeholder', t(element.dataset.i18nPlaceholder));
+    }
+    for (const element of all('[data-i18n-title]')) element.setAttribute('title', t(element.dataset.i18nTitle));
+    for (const element of all('[data-i18n-aria-label]')) {
+      element.setAttribute('aria-label', t(element.dataset.i18nAriaLabel));
+    }
+    applyTitle();
+  } catch {}
+}
 export function getLang() { return lang; }
 export function t(key, ...args) {
   const v = STRINGS[lang][key] ?? STRINGS.ru[key] ?? key;
   return typeof v === 'function' ? v(...args) : v;
+}
+
+const LOCALIZED_NAME_KEYS = {
+  skin: {
+    neon: 'skin_neon', gold: 'skin_gold', forest: 'skin_forest', void: 'skin_void', crimson: 'skin_crimson',
+  },
+  ghost: {
+    shadow: 'ghost_shadow', smoke: 'ghost_smoke', phantom: 'ghost_phantom', mirage: 'ghost_mirage', inferno: 'ghost_inferno',
+  },
+};
+
+/** Контракт для динамических карточек: хранить стабильный id, переводить при рендере. */
+export function localizedName(kind, id) {
+  const normalized = String(id ?? '').toLowerCase().replace(/^(?:skin|ghost)_/, '');
+  const key = LOCALIZED_NAME_KEYS[kind]?.[normalized] ?? String(id ?? '');
+  return t(key);
 }

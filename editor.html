@@ -1,36 +1,37 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-title-key="editorTitle">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GHOSTFIRE — Редактор</title>
 <style>
-  :root { --accent: #ff5533; --accent2: #33ddff; --bg: #101418; --panel: #1a2028; }
+  :root { --accent: #ff5533; --accent2: #33ddff; --bg: #101418; --panel: #1a2028; --safe-top: env(safe-area-inset-top, 0px); --topbar-height: calc(52px + var(--safe-top)); --tools-width: 240px; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
   .hidden { display: none !important; }
 
-  #topbar { position: fixed; top: 0; left: 0; right: 0; height: 52px; background: var(--panel); display: flex; align-items: center; gap: 10px; padding: 0 14px; z-index: 10; border-bottom: 2px solid #2a3038; }
+  #topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-height); background: var(--panel); display: flex; align-items: center; gap: 10px; padding: var(--safe-top) max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px)); z-index: 10; border-bottom: 2px solid #2a3038; overflow-x: auto; white-space: nowrap; }
   .btn { padding: 8px 16px; font-size: 14px; font-weight: 700; color: #fff; background: #232a33; border: 2px solid #3a4450; border-radius: 6px; cursor: pointer; text-decoration: none; }
   .btn:hover { border-color: var(--accent); }
   .btn.active { border-color: var(--accent2); background: #2a3644; }
   .btn.primary { background: var(--accent); border-color: #ff7755; }
   #status { margin-left: auto; font-size: 13px; color: #8f9; }
 
-  .panel { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; display: flex; }
-  .tools { width: 240px; background: var(--panel); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; border-right: 2px solid #2a3038; }
+  .panel { position: fixed; top: var(--topbar-height); left: 0; right: 0; bottom: 0; display: flex; min-width: 0; }
+  .tools { width: var(--tools-width); min-width: var(--tools-width); flex: 0 0 var(--tools-width); background: var(--panel); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; border-right: 2px solid #2a3038; }
   .tools h3 { font-size: 13px; text-transform: uppercase; opacity: .6; margin-top: 8px; }
-  .tools .btn { text-align: left; font-size: 13px; padding: 7px 10px; }
-  canvas.view { flex: 1; display: block; }
+  .tools .btn { min-width: 0; text-align: left; white-space: normal; font-size: 13px; padding: 7px 10px; }
+  canvas.view { width: 0; min-width: 0; height: 100%; flex: 1 1 0; display: block; }
 
   #palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .pal { height: 34px; border-radius: 5px; border: 3px solid transparent; cursor: pointer; }
+  .pal { min-width: 0; height: 34px; border-radius: 5px; border: 3px solid transparent; cursor: pointer; }
   .pal.active { border-color: #fff; }
 
   .crow { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 3px 0; }
   .crow input[type=color] { width: 44px; height: 26px; border: none; background: none; cursor: pointer; }
   .hint { font-size: 11.5px; opacity: .55; line-height: 1.5; }
   textarea#code-io { width: 100%; height: 60px; background: #12161c; color: #9fd; border: 1px solid #3a4450; border-radius: 5px; font-family: monospace; font-size: 11px; padding: 6px; resize: none; }
+  @media (max-width: 640px) { :root { --tools-width: min(220px, 70vw); } }
 </style>
 <script type="importmap">
 {
@@ -43,80 +44,78 @@
 </script>
 </head>
 <body>
-<div id="topbar">
-  <a href="index.html" class="btn">← Игра</a>
-  <button id="tab-map" class="btn active">Редактор карт</button>
-  <button id="tab-skin" class="btn">Редактор скинов</button>
+<div id="topbar" role="tablist">
+  <a href="index.html" class="btn" data-i18n="editorGame">← Игра</a>
+  <button id="tab-map" class="btn active" role="tab" aria-selected="true" data-i18n="editorMapTab">Редактор карт</button>
+  <button id="tab-skin" class="btn" role="tab" aria-selected="false" data-i18n="editorSkinTab">Редактор скинов</button>
   <span id="status"></span>
+  <button id="btn-lang" class="btn" type="button" aria-label="Язык">RU</button>
 </div>
 
-<div id="panel-map" class="panel">
+<div id="panel-map" class="panel" role="tabpanel" aria-labelledby="tab-map">
   <div class="tools" id="map-tools">
-    <h3>Инструменты</h3>
-    <button class="btn tool active" data-tool="place">🧱 Блок (ЛКМ — ставить)</button>
-    <button class="btn tool" data-tool="erase">❌ Стереть</button>
-    <button class="btn tool" data-tool="spawn0">🔵 Спавн игрока</button>
-    <button class="btn tool" data-tool="spawn1">🔴 Спавн призрака</button>
-    <button class="btn tool" data-tool="weapon1">🔫 Дробовик</button>
-    <button class="btn tool" data-tool="weapon2">⚡ Рейлган</button>
-    <button class="btn tool" data-tool="weapon3">💥 ПП</button>
-    <button class="btn tool" data-tool="weapon4">🎯 Автомат</button>
-    <button class="btn tool" data-tool="weapon5">🔭 Снайперка</button>
-    <h3>Цвет блока</h3>
+    <h3 data-i18n="edTools">Инструменты</h3>
+    <button class="btn tool active" data-tool="place" data-i18n="edToolPlace">🧱 Блок (ЛКМ — ставить)</button>
+    <button class="btn tool" data-tool="erase" data-i18n="edToolErase">❌ Стереть</button>
+    <button class="btn tool" data-tool="spawn0" data-i18n="edSpawnPlayer">🔵 Спавн игрока</button>
+    <button class="btn tool" data-tool="spawn1" data-i18n="edSpawnGhost">🔴 Спавн призрака</button>
+    <button class="btn tool" data-tool="weapon1" data-i18n="edWeaponShotgun">🔫 Дробовик</button>
+    <button class="btn tool" data-tool="weapon2" data-i18n="edWeaponRailgun">⚡ Рейлган</button>
+    <button class="btn tool" data-tool="weapon3" data-i18n="edWeaponSmg">💥 ПП</button>
+    <button class="btn tool" data-tool="weapon4" data-i18n="edWeaponAr">🎯 Автомат</button>
+    <button class="btn tool" data-tool="weapon5" data-i18n="edWeaponSniper">🔭 Снайперка</button>
+    <h3 data-i18n="edBlockColor">Цвет блока</h3>
     <div id="palette"></div>
-    <h3>Карта</h3>
-    <button class="btn" id="btn-new">Новая 24×24</button>
-    <button class="btn" id="btn-load1">Открыть «Тесная арена»</button>
-    <button class="btn" id="btn-load2">Открыть «Два уровня»</button>
-    <h3>Обмен</h3>
-    <textarea id="code-io" placeholder="Код карты для импорта/экспорта"></textarea>
-    <button class="btn" id="btn-import">Импорт из кода</button>
-    <button class="btn" id="btn-export">Экспорт в код</button>
-    <button class="btn" id="btn-download">Скачать JSON</button>
-    <button class="btn primary" id="btn-save">💾 Сохранить в игру</button>
-    <div class="hint">Вращение — ПКМ-драг, зум — колесо, панорама — СКМ.
-    Блоки ставятся кликом по грани. Для игры нужны оба спавна.
-    Сохранённая карта появится в игре как «Своя карта».</div>
+    <h3 data-i18n="edMap">Карта</h3>
+    <button class="btn" id="btn-new" data-i18n="edNew">Новая 24×24</button>
+    <button class="btn" id="btn-load1" data-i18n="edOpenArena01">Открыть «Тесная арена»</button>
+    <button class="btn" id="btn-load2" data-i18n="edOpenArena02">Открыть «Два уровня»</button>
+    <h3 data-i18n="edExchange">Обмен</h3>
+    <textarea id="code-io" maxlength="60000" spellcheck="false" autocomplete="off" placeholder="Код карты для импорта/экспорта" data-i18n-placeholder="edCodePlaceholder"></textarea>
+    <button class="btn" id="btn-import" data-i18n="edImport">Импорт из кода</button>
+    <button class="btn" id="btn-export" data-i18n="edExport">Экспорт в код</button>
+    <button class="btn" id="btn-download" data-i18n="edDownload">Скачать JSON</button>
+    <button class="btn primary" id="btn-save" data-i18n="edSaveGame">💾 Сохранить в игру</button>
+    <div class="hint" data-i18n="edMapHint">Вращение — ПКМ-драг, зум — колесо, панорама — СКМ. Блоки ставятся кликом по грани. Для игры нужны оба спавна. Сохранённая карта появится в игре как «Своя карта».</div>
   </div>
-  <canvas class="view" id="map-canvas"></canvas>
+  <canvas class="view" id="map-canvas" aria-label="Предпросмотр карты" data-i18n-aria-label="editorMapPreview"></canvas>
 </div>
 
-<div id="panel-skin" class="panel hidden">
+<div id="panel-skin" class="panel hidden" role="tabpanel" aria-labelledby="tab-skin">
   <div class="tools" id="skin-tools">
-    <h3>Маска и одежда</h3>
+    <h3 data-i18n="skinArtHeading">Маска и одежда</h3>
     <div class="crow">
       <select id="pix-target" class="btn" style="padding:5px">
-        <option value="face">Лицо / маска</option>
-        <option value="torso">Одежда (торс)</option>
+        <option value="face" data-i18n="skinTargetFace">Лицо / маска</option>
+        <option value="torso" data-i18n="skinTargetTorso">Одежда (торс)</option>
       </select>
       <input type="color" id="pix-color" value="#ff3333">
     </div>
     <canvas id="pix-canvas" width="208" height="208" style="width:208px;height:208px;image-rendering:pixelated;border:2px solid #3a4450;border-radius:6px;cursor:crosshair;touch-action:none"></canvas>
     <div class="crow" style="gap:6px">
-      <button class="btn" id="pix-eraser" style="flex:1">Ластик: выкл</button>
-      <button class="btn" id="pix-clear" style="flex:1">Очистить</button>
+      <button class="btn" id="pix-eraser" style="flex:1" data-i18n="eraserOff">Ластик: выкл</button>
+      <button class="btn" id="pix-clear" style="flex:1" data-i18n="clear">Очистить</button>
     </div>
     <div id="pix-presets" style="display:flex;flex-wrap:wrap;gap:5px"></div>
     <label class="btn" style="text-align:center">
-      📷 Загрузить картинку
-      <input type="file" id="pix-upload" accept="image/*" style="display:none">
+      <span data-i18n="uploadImage">📷 Загрузить картинку</span>
+      <input type="file" id="pix-upload" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
     </label>
-    <div class="hint">Рисуй мышью по сетке. Картинка сожмётся в пиксель-арт 16×16 и встанет на лицо или торс.</div>
-    <h3>Персонаж</h3>
+    <div class="hint" data-i18n="skinArtHint">Рисуй мышью по сетке. Картинка сожмётся в пиксель-арт 16×16 и встанет на лицо или торс.</div>
+    <h3 data-i18n="character">Персонаж</h3>
     <div id="skin-body"></div>
-    <h3>Пистолет</h3><div id="skin-pistol"></div>
-    <h3>ПП</h3><div id="skin-smg"></div>
-    <h3>Автомат</h3><div id="skin-ar"></div>
-    <h3>Дробовик</h3><div id="skin-shotgun"></div>
-    <h3>Снайперка</h3><div id="skin-sniper"></div>
-    <h3>Рейлган</h3><div id="skin-railgun"></div>
-    <h3>Эффекты</h3><div id="skin-fx"></div>
-    <button class="btn primary" id="btn-skin-save">💾 Применить скин</button>
-    <button class="btn" id="btn-skin-reset">Сбросить к стандарту</button>
-    <div class="hint">Скин применяется к твоему персонажу, призракам и пушкам.
-    Хранится локально — задел под донат-магазин.</div>
+    <h3 data-i18n="pistol">Пистолет</h3><div id="skin-pistol"></div>
+    <h3 data-i18n="smg">ПП</h3><div id="skin-smg"></div>
+    <h3 data-i18n="ar">Автомат</h3><div id="skin-ar"></div>
+    <h3 data-i18n="shotgun">Дробовик</h3><div id="skin-shotgun"></div>
+    <h3 data-i18n="sniper">Снайперка</h3><div id="skin-sniper"></div>
+    <h3 data-i18n="railgun">Рейлган</h3><div id="skin-railgun"></div>
+    <h3 data-i18n="effects">Эффекты</h3><div id="skin-fx"></div>
+    <button class="btn primary" id="btn-skin-save" data-i18n="applySkin">💾 Применить скин</button>
+    <button class="btn" id="btn-skin-reset" data-i18n="resetSkin">Сбросить к стандарту</button>
+    <div class="hint" data-i18n="skinHint">Скин применяется к твоему персонажу, призракам и пушкам. Хранится в том же облачном слоте, что использует игра.</div>
   </div>
-  <canvas class="view" id="skin-canvas"></canvas>
+  <canvas class="view" id="skin-canvas" aria-label="Предпросмотр скина" data-i18n-aria-label="editorSkinPreview"></canvas>
 </div>
 
 <script type="module" src="js/editor.js"></script>

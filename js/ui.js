@@ -1,22 +1,82 @@
 // UI: меню, выбор карты/призрака, настройки, межраундовый и финальный экраны,
 // HUD, шеринг призрака через LZ-string.
 import LZString from 'lz-string';
-import { t, setLang, getLang } from './i18n.js';
+import { t, setLang, getLang, localizedName } from './i18n.js';
 import { synthBotForMap, botNames } from './botgen.js';
 import { mapPreviewURL } from './mappreview.js';
 import { CONFIG } from './config.js';
+import { Platform } from './platform.js';
+import { VALIDATION_LIMITS, validateShareEntry } from './validation.js';
+import { decompressURIComponentBounded } from './lz-bounded.js';
 
 const BUILTIN_MAPS = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
+const BUILTIN_GHOSTS = ['shadow', 'smoke', 'phantom', 'mirage', 'inferno'];
 
 const BUILTIN_MULTS = [1, 1.5, 2, 2.5, 3]; // множители награды по сложности
 
 const $ = (id) => document.getElementById(id);
-const el = (tag, cls, html) => {
+const el = (tag, cls, text) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
-  if (html !== undefined) e.innerHTML = html;
+  if (text !== undefined) e.textContent = String(text);
   return e;
 };
+
+const clear = (node) => node.replaceChildren();
+const finiteNumber = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+const translatedOr = (key, fallback) => {
+  const value = t(key);
+  return value === key ? fallback : value;
+};
+
+const paymentMessage = (error) => {
+  if (error?.code === 'purchase_consume_pending') return t('purchasePending');
+  if (error?.code === 'product_unavailable' || error?.code === 'unknown_product') return t('productUnavailable');
+  return t('purchaseFailed');
+};
+
+function safeCurrencyImage(value) {
+  if (typeof value !== 'string' || value.length > 2_048) return null;
+  if (/^data:image\/(?:png|gif|webp);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+  try {
+    const url = new URL(value, location.href);
+    return url.protocol === 'https:' ? url.href : null;
+  } catch { return null; }
+}
+
+function namedDescription(name, description) {
+  const wrap = el('div');
+  wrap.append(el('div', 'gname', name));
+  if (description) wrap.append(el('div', 'gdesc', description));
+  return wrap;
+}
+
+function scoreDisplay(playerScore, ghostScore) {
+  const score = el('div', 'bigscore');
+  score.append(
+    el('span', 'me', Math.max(0, Math.round(finiteNumber(playerScore)))),
+    document.createTextNode(' : '),
+    el('span', 'foe', Math.max(0, Math.round(finiteNumber(ghostScore)))),
+  );
+  return score;
+}
+
+function rewardRow(cls, label, amount = '') {
+  const row = el('div', `reward-row${cls ? ` ${cls}` : ''}`);
+  row.append(el('span', '', label), el('b', '', amount));
+  return row;
+}
+
+function durationText(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3_600) return null;
+  const minutes = Math.floor(seconds / 60);
+  const rest = (seconds % 60).toFixed(1).padStart(4, '0');
+  return `${minutes}:${rest}`;
+}
+
+// Internal-only reward classification. encode/decode validation never carries
+// this field across a share boundary.
+const ownGhostEntry = entry => ({ ...entry, _rewardClass: 'self' });
 
 export class UI {
   /**
@@ -37,7 +97,9 @@ export class UI {
       for (let i = 1; i <= 5; i++) {
         try {
           const res = await fetch(`ghosts/${mapId}_d${i}.json`);
-          if (res.ok) list.push(await res.json());
+          if (!res.ok) continue;
+          const checked = validateShareEntry(await res.json());
+          if (checked.ok && checked.value.map === mapId) list.push(checked.value);
         } catch { /* нет файла — пропускаем */ }
       }
       this._ghostCache[mapId] = list;
@@ -62,9 +124,11 @@ export class UI {
   buildMenu() {
     this._inBuildMenu = true;
     const s = $('screen-menu');
-    s.innerHTML = '';
+    clear(s);
+    const logo = el('div', 'logo', 'GHOST');
+    logo.append(el('span', '', 'FIRE'));
     s.append(
-      el('div', 'logo', 'GHOST<span>FIRE</span>'),
+      logo,
       el('div', 'subtitle', '1v1 · voxel duel'),
     );
     // "Быстрый матч" повторяет последний выбор карта+противник в один тап
@@ -88,7 +152,7 @@ export class UI {
 
   buildMaps() {
     const s = $('screen-maps');
-    s.innerHTML = '';
+    clear(s);
     s.append(el('h2', '', t('chooseMap')));
     const row = el('div', 'row');
     const addCard = (id, name, desc, mapData = null) => {
@@ -121,14 +185,14 @@ export class UI {
     // карточки дважды — доживает только последняя сборка
     const buildId = (this._ghostsBuildId = (this._ghostsBuildId ?? 0) + 1);
     const s = $('screen-ghosts');
-    s.innerHTML = '';
+    clear(s);
     s.append(el('h2', '', t('chooseGhost')));
     if (this.selectedMap === '__custom') {
       // пользовательская карта: боты синтезируются под неё на месте
       botNames().forEach((name, i) => {
         const card = el('div', 'ghost-card');
         card.append(
-          el('div', '', `<div class="gname">${t('botOnMap')} · ${name}</div>`),
+          namedDescription(`${t('botOnMap')} · ${t(name)}`),
           el('div', 'gdiff', '★'.repeat(i + 1)),
         );
         card.append(el('div', 'gdesc', t('rewardMult', [1, 2, 3][i])));
@@ -145,12 +209,12 @@ export class UI {
       if (mine && mine.map === '__custom') {
         const card = el('div', 'ghost-card');
         card.append(
-          el('div', '', `<div class="gname">${t('yourGhost')}</div><div class="gdesc">${t('yourGhostDesc')}</div>`),
+          namedDescription(t('yourGhost'), t('yourGhostDesc')),
           el('div', 'gdiff', '👻'),
         );
         card.onclick = () => {
           this._rememberPick('__custom', { type: 'mine' });
-          this.a.startMatch('__custom', mine);
+          this.a.startMatch('__custom', ownGhostEntry(mine));
         };
         s.append(card);
       }
@@ -164,8 +228,8 @@ export class UI {
       const mult = BUILTIN_MULTS[i];
       const card = el('div', 'ghost-card');
       card.append(
-        el('div', '', `<div class="gname">${g.name}</div>` +
-          `<div class="gdesc">${t(`bot${i + 1}desc`)} · ${t('rewardMult', mult)}</div>`),
+        namedDescription(localizedName('ghost', BUILTIN_GHOSTS[i]),
+          `${t(`bot${i + 1}desc`)} · ${t('rewardMult', mult)}`),
         el('div', 'gdiff', '★'.repeat(i + 1)),
       );
       card.onclick = () => {
@@ -178,12 +242,12 @@ export class UI {
     const card = el('div', 'ghost-card');
     if (mine) {
       card.append(
-        el('div', '', `<div class="gname">${t('yourGhost')}</div><div class="gdesc">${t('yourGhostDesc')}</div>`),
+        namedDescription(t('yourGhost'), t('yourGhostDesc')),
         el('div', 'gdiff', '👻'),
       );
       card.onclick = () => {
         this._rememberPick(mine.map ?? this.selectedMap, { type: 'mine' });
-        this.a.startMatch(mine.map ?? this.selectedMap, mine);
+        this.a.startMatch(mine.map ?? this.selectedMap, ownGhostEntry(mine));
       };
     } else {
       card.style.opacity = 0.5;
@@ -202,9 +266,14 @@ export class UI {
 
   _quickPickValid() {
     const lp = this.a.settings.lastPick;
-    if (!lp) return false;
-    if (lp.ghost.type === 'builtin') return lp.ghost.index >= 0 && lp.ghost.index < 5;
-    if (lp.ghost.type === 'custombot') return !!this.a.getCustomMap();
+    if (!lp || !lp.ghost || (!BUILTIN_MAPS.includes(lp.map) && lp.map !== '__custom')) return false;
+    if (lp.ghost.type === 'builtin') {
+      return BUILTIN_MAPS.includes(lp.map) && Number.isInteger(lp.ghost.index) && lp.ghost.index >= 0 && lp.ghost.index < 5;
+    }
+    if (lp.ghost.type === 'custombot') {
+      return lp.map === '__custom' && Number.isInteger(lp.ghost.index) && lp.ghost.index >= 0 && lp.ghost.index < 3 &&
+        !!this.a.getCustomMap();
+    }
     if (lp.ghost.type === 'mine') return !!this.a.getPlayerGhost();
     return false;
   }
@@ -224,18 +293,19 @@ export class UI {
       this.a.startMatch('__custom', entry);
     } else {
       const mine = this.a.getPlayerGhost();
-      this.a.startMatch(lp.map, mine);
+      this.a.startMatch(lp.map, ownGhostEntry(mine));
     }
   }
 
   buildChallenge(prefill = '') {
     const s = $('screen-challenge');
-    s.innerHTML = '';
+    clear(s);
     s.append(el('h2', '', t('acceptChallenge')));
     const ta = el('textarea');
     ta.id = 'challenge-input';
     ta.placeholder = t('pasteCode');
-    ta.value = prefill;
+    ta.maxLength = VALIDATION_LIMITS.shareCodeChars + 2_048;
+    ta.value = typeof prefill === 'string' ? prefill.slice(0, ta.maxLength) : '';
     const status = el('div', 'gdesc', '');
     const fightBtn = this._btn(t('fight'), 'primary', () => {
       const entry = decodeShareCode(ta.value.trim());
@@ -261,26 +331,30 @@ export class UI {
 
   /** Магазин: баланс госткоинов, паки за Яны (заглушки), скины. */
   async buildShop(statusMsg = '') {
+    const buildId = (this._shopBuildId = (this._shopBuildId ?? 0) + 1);
     const s = $('screen-shop');
     const shop = this.a.getShop();
     const wallet = this.a.getWallet();
-    s.innerHTML = '';
+    clear(s);
     s.append(el('h2', '', t('shop')));
-    s.append(el('div', 'bigscore', `👻 <span class="me">${wallet.coins}</span>`));
-    // паки коинов за Яны — скрыты, пока товары не заведены в консоли
+    const balance = el('div', 'bigscore', '👻 ');
+    balance.append(el('span', 'me', Math.max(0, Math.round(finiteNumber(wallet?.coins)))));
+    s.append(balance);
+    // Цена и наличие паков приходят только из SDK catalog.
+    let packs = null;
     if (CONFIG.paymentsEnabled) {
-      const packs = el('div', 'row');
-      for (const p of shop.packs) {
-        packs.append(this._btn(`+${p.coins} 👻 · ${p.priceYan} ${t('yan')}`, 'small', async () => {
-          await this.a.buyCoins(p);
-          this.buildShop();
-        }));
-      }
+      packs = el('div', 'row');
+      packs.append(el('div', 'gdesc', translatedOr('paymentLoading', 'Loading products…')));
       s.append(packs);
     }
     // скины: дефолт + магазинные + слот "Свой скин" (редактор)
     const grid = el('div', 'row');
-    const dot = (c) => `<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${c};margin-right:4px;vertical-align:middle"></span>`;
+    const dot = (color) => {
+      const node = el('span');
+      node.style.cssText = 'display:inline-block;width:16px;height:16px;border-radius:4px;margin-right:4px;vertical-align:middle';
+      node.style.backgroundColor = /^#[0-9a-f]{6}$/i.test(color ?? '') ? color : '#777777';
+      return node;
+    };
     const items = [
       { id: 'default', name: t('skinDefault'), price: 0, skin: null },
       ...shop.skins,
@@ -289,17 +363,26 @@ export class UI {
     for (const item of items) {
       const card = el('div', 'map-card');
       const sk = item.skin;
-      const dots = item.isCustom ? '🎨✏️👻'
-        : sk
-          ? dot(sk.body.head) + dot(sk.body.torso) + dot(sk.weapons.railgun.accent) + dot(sk.tracer)
-          : dot('#ffcc88') + dot('#2277dd') + dot('#33ddff') + dot('#ffdd55');
+      const dots = el('div');
+      if (item.isCustom) dots.textContent = '🎨✏️👻';
+      else {
+        const colors = sk
+          ? [sk.body?.head, sk.body?.torso, sk.weapons?.railgun?.accent, sk.tracer]
+          : ['#ffcc88', '#2277dd', '#33ddff', '#ffdd55'];
+        dots.append(...colors.map(dot));
+      }
       const owned = wallet.owned.includes(item.id);
       const equipped = (wallet.equipped ?? 'default') === item.id;
       const state = equipped ? t('equipped') : owned ? t('equip') : `${owned ? '' : item.isCustom ? '🔒 ' : ''}${item.price} 👻`;
+      const desc = el('div', 'map-desc', state);
+      if (item.isCustom) desc.append(document.createElement('br'), document.createTextNode(t('customSkinDesc')));
+      const itemName = item.id === 'default' || item.id === 'custom'
+        ? item.name
+        : localizedName('skin', item.id);
       card.append(
-        el('div', 'map-name', item.name),
-        el('div', '', dots),
-        el('div', 'map-desc', state + (item.isCustom ? `<br>${t('customSkinDesc')}` : '')),
+        el('div', 'map-name', itemName),
+        dots,
+        desc,
       );
       if (equipped) card.classList.add('selected');
       card.onclick = async () => {
@@ -313,12 +396,49 @@ export class UI {
     if (statusMsg) s.append(el('div', 'gdesc', statusMsg));
     s.append(this._btn(t('back'), 'small', () => this.show('menu')));
     this.show('shop');
+
+    if (packs) {
+      const catalog = typeof this.a.loadPaymentCatalog === 'function'
+        ? await this.a.loadPaymentCatalog() : [];
+      if (buildId !== this._shopBuildId) return;
+      const error = Platform.consumeLastError?.();
+      clear(packs);
+      let available = 0;
+      if (!error && Array.isArray(catalog)) {
+        const byId = new Map(catalog.map(product => [product?.id, product]));
+        for (const pack of Array.isArray(shop.packs) ? shop.packs : []) {
+          const product = byId.get(pack?.id);
+          const grant = CONFIG.coinPackGrants?.[pack?.id];
+          if (!product || !Number.isInteger(grant) || grant <= 0 ||
+              typeof product.price !== 'string' || !product.price.trim()) continue;
+          available++;
+          const buy = this._btn(`+${grant} 👻 · ${product.price}`, 'small', async () => {
+            buy.disabled = true;
+            await this.a.buyCoins(pack);
+            const purchaseError = Platform.consumeLastError?.();
+            await this.buildShop(purchaseError ? paymentMessage(purchaseError) : '');
+          });
+          const currencyImage = safeCurrencyImage(product.currencyImage);
+          if (currencyImage) {
+            const icon = el('img');
+            icon.src = currencyImage;
+            icon.alt = '';
+            icon.width = 20;
+            icon.height = 20;
+            icon.referrerPolicy = 'no-referrer';
+            buy.prepend(icon, document.createTextNode(' '));
+          }
+          packs.append(buy);
+        }
+      }
+      if (error || available === 0) packs.append(el('div', 'gdesc', error ? t('paymentError') : t('productUnavailable')));
+    }
   }
 
   /** Пауза посреди матча: продолжить / настройки / выход. */
   buildPause() {
     const s = $('screen-pause');
-    s.innerHTML = '';
+    clear(s);
     s.append(
       el('h2', '', t('pause')),
       this._btn(t('resume'), 'primary', () => this.a.resumeMatch()),
@@ -331,7 +451,7 @@ export class UI {
   buildSettings(backFn = null) {
     const s = $('screen-settings');
     const st = this.a.settings;
-    s.innerHTML = '';
+    clear(s);
     s.append(el('h2', '', t('settings')));
     const row = (label, control) => {
       const r = el('div', 'setting-row');
@@ -366,44 +486,50 @@ export class UI {
   /** Экран между раундами: крупный счёт. Отсчёт рисует HUD. */
   showRoundScreen(playerScore, ghostScore, playerWon) {
     const s = $('screen-round');
-    s.innerHTML = '';
+    clear(s);
     s.append(
       el('h2', '', playerWon ? t('roundWin') : t('roundLose')),
-      el('div', 'bigscore', `<span class="me">${playerScore}</span> : <span class="foe">${ghostScore}</span>`),
+      scoreDisplay(playerScore, ghostScore),
     );
     this.show('round');
   }
 
-  showMatchScreen(playerScore, ghostScore, accuracy, won, ghostEntry, reward = null, hitStats = null) {
+  showMatchScreen(playerScore, ghostScore, accuracy, won, ghostEntry, reward = null, hitStats = null, timing = null) {
     const s = $('screen-match');
-    s.innerHTML = '';
+    clear(s);
+    const safeAccuracy = Math.min(1, Math.max(0, finiteNumber(accuracy)));
     s.append(
       el('h2', '', won ? t('matchWin') : t('matchLose')),
-      el('div', 'bigscore', `<span class="me">${playerScore}</span> : <span class="foe">${ghostScore}</span>`),
-      el('div', '', `${t('accuracy')}: ${Math.round(accuracy * 100)}%`),
+      scoreDisplay(playerScore, ghostScore),
+      el('div', '', `${t('accuracy')}: ${Math.round(safeAccuracy * 100)}%`),
     );
-    if (hitStats && (hitStats.headshots + hitStats.bodyshots) > 0) {
-      const total = hitStats.headshots + hitStats.bodyshots;
-      s.append(el('div', '', `${t('headshots')}: ${hitStats.headshots} (${Math.round(hitStats.headshots / total * 100)}%)`));
+    const headshots = Math.max(0, Math.round(finiteNumber(hitStats?.headshots)));
+    const bodyshots = Math.max(0, Math.round(finiteNumber(hitStats?.bodyshots)));
+    if (headshots + bodyshots > 0) {
+      const total = headshots + bodyshots;
+      s.append(el('div', '', `${t('headshots')}: ${headshots} (${Math.round(headshots / total * 100)}%)`));
     }
-    // разбивка награды за матч
-    if (reward) {
+    const ownerTime = durationText(timing?.ownerDurationSec);
+    const playerTime = durationText(timing?.playerBestDurationSec);
+    if (ownerTime) s.append(el('div', 'gdesc', `${t('ownerTime')}: ${ownerTime}`));
+    if (playerTime) s.append(el('div', 'gdesc', `${t('yourBestTime')}: ${playerTime}`));
+    if (timing?.beatOwnerTime === true) s.append(el('div', 'gdesc', t('beatOwnerTime')));
+    if (reward && Array.isArray(reward.lines)) {
       const box = el('div', 'reward-box');
-      for (const l of reward.lines) {
-        box.append(el('div', 'reward-row',
-          `<span>${t(l.key)}${l.suffix ?? ''}</span><b>+${l.amount}</b>`));
+      for (const line of reward.lines.slice(0, 16)) {
+        if (!line || typeof line.key !== 'string' || !Number.isFinite(line.amount)) continue;
+        const suffix = typeof line.suffix === 'string' ? line.suffix.slice(0, 24) : '';
+        box.append(rewardRow('', `${t(line.key)}${suffix}`, `+${Math.max(0, Math.round(line.amount))}`));
       }
-      if (reward.firstWin) {
-        box.append(el('div', 'reward-row bonus', `<span>${t('rewardFirstWin')}</span><b></b>`));
-      }
-      box.append(el('div', 'reward-row total',
-        `<span>${t('rewardTotal')}</span><b>+${reward.total} 👻</b>`));
+      if (reward.firstWin === true) box.append(rewardRow('bonus', t('rewardFirstWin')));
+      const total = Math.max(0, Math.round(finiteNumber(reward.total)));
+      box.append(rewardRow('total', t('rewardTotal'), `+${total} 👻`));
       s.append(box);
-      if (reward.total > 0 && !reward.doubled) {
+      if (total > 0 && reward.doubled !== true) {
         const dbl = this._btn(t('rewardDouble') + ' 📺', 'small', async () => {
           if (await this.a.doubleReward()) {
             dbl.remove();
-            this.toast(`+${reward.total} 👻`);
+            this.toast(`+${total} 👻`);
           }
         });
         s.append(dbl);
@@ -420,10 +546,10 @@ export class UI {
       row.append(this._btn(t('playAgain'), 'primary', () => this.a.startMatch(this.selectedMap, ghostEntry)));
     }
     if (!won) {
-      // rewarded-хук: реванш с того же счёта
+      // rewarded-хук: полный реванш с нового счёта 0:0
       row.append(this._btn(t('rematchAd') + ' 📺', '', () => this.a.rematchRewarded()));
     }
-    row.append(this._btn(t('back'), '', () => this.show('menu')));
+    row.append(this._btn(t('back'), '', () => this.a.exitMatch()));
     s.append(row);
     this.show('match');
   }
@@ -431,20 +557,31 @@ export class UI {
   /** Вызов другу: готовый текст со ссылкой по окружению; без ссылки — код. */
   async shareChallenge(entry) {
     const code = encodeShareCode(entry);
+    if (!code) { this.toast(t('badCode')); return; }
     const url = this.a.getShareUrl(code);
+    let copied;
     if (url) {
-      await copyText(t('challengeText', url));
-      this.toast(t('copiedToast'));
+      copied = await copyText(t('challengeText', url));
     } else {
-      await copyText(code);
-      this.toast(t('codeCopiedToast'));
+      copied = await copyText(code);
+    }
+    if (copied) {
+      this.toast(url ? t('copiedToast') : t('codeCopiedToast'));
+    } else {
+      this.buildChallenge(code);
+      this.toast(translatedOr('copyFailed', 'Automatic copy is unavailable — copy the code manually'));
     }
   }
 
   /** Только код призрака — для комментариев и площадок без ссылок. */
   async shareCodeOnly(entry) {
-    await copyText(encodeShareCode(entry));
-    this.toast(t('codeCopiedToast'));
+    const code = encodeShareCode(entry);
+    if (!code) { this.toast(t('badCode')); return; }
+    if (await copyText(code)) this.toast(t('codeCopiedToast'));
+    else {
+      this.buildChallenge(code);
+      this.toast(translatedOr('copyFailed', 'Automatic copy is unavailable — copy the code manually'));
+    }
   }
 
   toast(msg) {
@@ -510,6 +647,7 @@ export class UI {
 
 /** Копирование с фолбэком для окружений без clipboard API (iframe и т.п.). */
 async function copyText(text) {
+  if (typeof text !== 'string' || !text) return false;
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -519,26 +657,43 @@ async function copyText(text) {
     ta.style.cssText = 'position:fixed;opacity:0';
     document.body.append(ta);
     ta.select();
-    try { document.execCommand('copy'); } catch { /* совсем нечем */ }
-    ta.remove();
-    return true;
+    try { return document.execCommand('copy') === true; }
+    catch { return false; }
+    finally { ta.remove(); }
   }
 }
 
 export function encodeShareCode(entry) {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(entry));
+  const checked = validateShareEntry(entry);
+  if (!checked.ok) return '';
+  const code = LZString.compressToEncodedURIComponent(JSON.stringify(checked.value));
+  return code.length <= VALIDATION_LIMITS.shareCodeChars ? code : '';
+}
+
+export function decodeShareCodeDetailed(input) {
+  if (typeof input !== 'string') return { ok: false, code: 'bad_share_input' };
+  try {
+    // Разрешаем вставить и целый URL. Общий cap проверяется до распаковки.
+    let code = input.trim();
+    if (!code || code.length > VALIDATION_LIMITS.shareCodeChars + 2_048) {
+      return { ok: false, code: 'bad_share_size' };
+    }
+    const m = code.match(/[?&](?:ghost|payload)=([^&#\s]+)/);
+    if (m) code = decodeURIComponent(m[1]);
+    if (!code || code.length > VALIDATION_LIMITS.shareCodeChars) {
+      return { ok: false, code: 'bad_share_size' };
+    }
+    const json = decompressURIComponentBounded(code, VALIDATION_LIMITS.shareJsonChars);
+    if (typeof json !== 'string' || !json) {
+      return { ok: false, code: 'bad_share_json' };
+    }
+    return validateShareEntry(JSON.parse(json));
+  } catch {
+    return { ok: false, code: 'bad_share_parse' };
+  }
 }
 
 export function decodeShareCode(code) {
-  try {
-    // разрешаем вставить и целый URL с ?ghost=
-    const m = code.match(/[?&]ghost=([^&\s]+)/);
-    if (m) code = m[1];
-    const json = LZString.decompressFromEncodedURIComponent(code);
-    const entry = JSON.parse(json);
-    if (!entry || typeof entry.data !== 'string') return null;
-    return entry;
-  } catch {
-    return null;
-  }
+  const checked = decodeShareCodeDetailed(code);
+  return checked.ok ? checked.value : null;
 }

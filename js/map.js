@@ -28,13 +28,13 @@ export class GameMap {
   constructor(data) {
     this.data = data;
     this.solid = new Set();
-    for (const [x, y, z] of data.blocks) this.solid.add(key(x, y, z));
+    for (const [x, y, z] of data.blocks ?? []) this.solid.add(key(x, y, z));
     this.mesh = this._buildMesh();
-    this.spawns = data.spawns.map(([x, y, z, yaw]) => ({
+    this.spawns = (data.spawns ?? []).map(([x, y, z, yaw]) => ({
       pos: new THREE.Vector3(x, y, z),
       yaw: (yaw ?? 0) * Math.PI / 180,
     }));
-    this.weaponSpots = data.weapons.map(w => ({
+    this.weaponSpots = (data.weapons ?? []).map(w => ({
       type: w.type,
       pos: new THREE.Vector3(w.pos[0], w.pos[1], w.pos[2]),
     }));
@@ -56,7 +56,7 @@ export class GameMap {
     const geoms = [];
     const color = new THREE.Color();
     const jitter = mulberry32(12345); // детерминированная вариация тона
-    for (const [x, y, z, type] of this.data.blocks) {
+    for (const [x, y, z, type] of this.data.blocks ?? []) {
       // скрытые блоки (окружены со всех сторон) не рендерим
       if (this.isSolid(x + 1, y, z) && this.isSolid(x - 1, y, z) &&
           this.isSolid(x, y + 1, z) && this.isSolid(x, y - 1, z) &&
@@ -88,7 +88,7 @@ export class GameMap {
       }
       geoms.push(g);
     }
-    const merged = mergeGeometries(geoms, false);
+    const merged = geoms.length ? mergeGeometries(geoms, false) : new THREE.BufferGeometry();
     geoms.forEach(g => g.dispose());
     // один материал с атласом = один draw call; transparent — ради тайла стекла
     const mat = new THREE.MeshLambertMaterial({
@@ -98,6 +98,13 @@ export class GameMap {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     return mesh;
+  }
+
+  dispose() {
+    this.mesh.geometry?.dispose();
+    const mats = Array.isArray(this.mesh.material) ? this.mesh.material : [this.mesh.material];
+    // Atlas — глобальный singleton textures.js; освобождаем только map material.
+    mats.forEach(m => m?.dispose());
   }
 }
 

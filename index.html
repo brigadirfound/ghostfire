@@ -10,15 +10,19 @@
     --accent2: #33ddff;
     --bg: #101418;
     --panel: rgba(16, 20, 24, 0.92);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #fff;
-    touch-action: none; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+    touch-action: none; overscroll-behavior: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   input, textarea, select, [contenteditable="true"] { user-select: text; -webkit-user-select: text; touch-action: auto; }
   #game-canvas { position: fixed; inset: 0; display: block; touch-action: none; }
   #mobile-ui, #stick-zone, #look-zone, #hud { touch-action: none; }
 
-  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; background: var(--panel); z-index: 20; overflow-y: auto; padding: 20px 0; touch-action: pan-y; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; background: var(--panel); z-index: 20; overflow-y: auto; padding: calc(20px + var(--safe-top)) max(12px, var(--safe-right)) calc(20px + var(--safe-bottom)) max(12px, var(--safe-left)); touch-action: pan-y; }
   /* центр при коротком контенте, скролл сверху при длинном */
   .screen > :first-child { margin-top: auto; }
   .screen > :last-child { margin-bottom: auto; }
@@ -65,13 +69,13 @@
   #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
   #crosshair.charging::before, #crosshair.charging::after { background: var(--accent2); }
 
-  #hp-bar { position: absolute; left: 20px; bottom: 20px; width: 220px; }
+  #hp-bar { position: absolute; left: calc(20px + var(--safe-left)); bottom: calc(20px + var(--safe-bottom)); width: 220px; }
   #hp-fill { height: 22px; background: linear-gradient(90deg, #ff3322, #ff7744); border-radius: 4px; transition: width .15s; box-shadow: 0 0 8px rgba(255,60,30,.6); }
   #hp-bar .frame { border: 3px solid #fff3; border-radius: 6px; padding: 2px; background: #0008; }
   #hp-num { font-size: 26px; font-weight: 900; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; }
 
-  #weapon-label { position: absolute; right: 20px; bottom: 20px; text-align: right; font-size: 22px; font-weight: 900; text-transform: uppercase; text-shadow: 2px 2px 0 #000; }
-  #score-mini { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 900; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; background: #0006; padding: 4px 18px; border-radius: 8px; }
+  #weapon-label { position: absolute; right: calc(20px + var(--safe-right)); bottom: calc(20px + var(--safe-bottom)); text-align: right; font-size: 22px; font-weight: 900; text-transform: uppercase; text-shadow: 2px 2px 0 #000; }
+  #score-mini { position: absolute; top: calc(14px + var(--safe-top)); left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 900; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; background: #0006; padding: 4px 18px; border-radius: 8px; }
   #hitmarker { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) rotate(45deg); width: 30px; height: 30px; opacity: 0; }
   #hitmarker::before, #hitmarker::after { content:""; position:absolute; background:#ff4433; }
   #hitmarker::before { left:50%; top:0; width:3px; height:100%; transform:translateX(-50%); }
@@ -82,14 +86,14 @@
 
   #countdown { position: absolute; left: 50%; top: 38%; transform: translate(-50%,-50%); font-size: 110px; font-weight: 900; color: var(--accent2); text-shadow: 5px 5px 0 #000; }
   #round-banner { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); font-size: 40px; font-weight: 900; text-shadow: 3px 3px 0 #000; text-align: center; }
-  #toast { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); background: #232a33; border: 2px solid var(--accent2); border-radius: 8px; padding: 10px 22px; font-weight: 700; z-index: 60; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; text-align: center; }
+  #toast { position: fixed; bottom: calc(44px + var(--safe-bottom)); left: 50%; transform: translateX(-50%); background: #232a33; border: 2px solid var(--accent2); border-radius: 8px; padding: 10px 22px; font-weight: 700; z-index: 60; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90vw; text-align: center; }
   #toast.show { opacity: 1; }
   .reward-box { width: min(340px, 86vw); background: #1a2028; border: 2px solid #2a3038; border-radius: 8px; padding: 10px 16px; }
   .reward-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 15px; }
   .reward-row b { color: var(--accent2); }
   .reward-row.bonus span { color: #ffd75e; }
   .reward-row.total { border-top: 1px solid #2a3038; margin-top: 4px; padding-top: 7px; font-weight: 900; }
-  #tut-box { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); background: #1a2028ee; border: 2px solid var(--accent2); border-radius: 10px; padding: 12px 14px 12px 20px; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 12px; pointer-events: auto; max-width: 92vw; }
+  #tut-box { position: absolute; top: calc(64px + var(--safe-top)); left: 50%; transform: translateX(-50%); background: #1a2028ee; border: 2px solid var(--accent2); border-radius: 10px; padding: 12px 14px 12px 20px; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 12px; pointer-events: auto; max-width: 92vw; }
   #tut-close { background: none; border: none; color: #fff8; font-size: 20px; cursor: pointer; padding: 2px 6px; }
   #tut-arrow { position: absolute; font-size: 44px; text-shadow: 2px 2px 0 #000; transform: translate(-50%, -100%); transition: left .1s linear, top .1s linear; }
   #preloader { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; transition: opacity .35s; }
@@ -106,10 +110,11 @@
   #look-zone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; pointer-events: auto; }
   #stick-base { position: absolute; width: 120px; height: 120px; border: 3px solid #fff5; border-radius: 50%; background: #0004; display: none; }
   #stick-knob { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: #fff8; left: 33px; top: 33px; }
-  .mbtn { position: absolute; border-radius: 50%; background: #0006; border: 3px solid #fff6; color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center; pointer-events: auto; user-select: none; touch-action: none; }
+  .mbtn { position: absolute; border-radius: 50%; background: #0006; border: 3px solid #fff6; color: #fff; font-family: inherit; font-weight: 900; padding: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; user-select: none; touch-action: none; }
   .mbtn:active { background: var(--accent); }
-  #btn-fire { right: 24px; bottom: 90px; width: 96px; height: 96px; font-size: 15px; border-color: var(--accent); }
-  #btn-jump { right: 140px; bottom: 32px; width: 68px; height: 68px; font-size: 13px; }
+  #btn-fire { right: calc(24px + var(--safe-right)); bottom: calc(90px + var(--safe-bottom)); width: 96px; height: 96px; font-size: 15px; border-color: var(--accent); }
+  #btn-jump { right: calc(140px + var(--safe-right)); bottom: calc(32px + var(--safe-bottom)); width: 68px; height: 68px; font-size: 13px; }
+  #btn-pause-mobile { right: calc(18px + var(--safe-right)); top: calc(18px + var(--safe-top)); width: 52px; height: 52px; font-size: 22px; }
 </style>
 <script type="importmap">
 {
@@ -128,7 +133,7 @@
   <div id="preloader-bar"><div id="preloader-fill"></div></div>
 </div>
 <canvas id="game-canvas"></canvas>
-<script>function isTextField(t){return t instanceof Element&&t.closest('input,textarea,select,[contenteditable="true"]')}document.addEventListener('contextmenu',e=>{if(!isTextField(e.target))e.preventDefault()});document.addEventListener('selectstart',e=>{if(!isTextField(e.target))e.preventDefault()})</script>
+<script>function isTextField(t){return t instanceof Element&&t.closest('input,textarea,select,[contenteditable="true"]')}document.addEventListener('contextmenu',e=>{if(!isTextField(e.target))e.preventDefault()});document.addEventListener('selectstart',e=>{if(!isTextField(e.target))e.preventDefault()});document.addEventListener('dragstart',e=>{if(!isTextField(e.target))e.preventDefault()})</script>
 
 <!-- HUD -->
 <div id="hud" class="hidden">
@@ -149,8 +154,9 @@
 <div id="mobile-ui">
   <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
   <div id="look-zone"></div>
-  <div class="mbtn" id="btn-fire">FIRE</div>
-  <div class="mbtn" id="btn-jump">JMP</div>
+  <button type="button" class="mbtn" id="btn-fire" aria-pressed="false" data-i18n="fire" data-i18n-aria-label="fire">FIRE</button>
+  <button type="button" class="mbtn" id="btn-jump" aria-pressed="false" data-i18n="jump" data-i18n-aria-label="jump">JMP</button>
+  <button type="button" class="mbtn" id="btn-pause-mobile" data-i18n-aria-label="pause" aria-label="Пауза">Ⅱ</button>
 </div>
 
 <!-- Screens (filled by ui.js) -->

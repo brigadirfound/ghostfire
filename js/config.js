@@ -11,6 +11,14 @@ export const CONFIG = {
   // Лимит длины payload в ссылке; длиннее (призрак с картой) — фолбэк на код
   yandexPayloadLimit: 1024,
 
+  // Практический предел обычной URL-ссылки. Более длинный challenge безопаснее
+  // копировать как код: прокси/CDN и мессенджеры часто режут длинные URL.
+  externalShareUrlLimit: 8000,
+
   // Покупки за Яны: до заведения товаров в консоли кнопки паков скрыты
   paymentsEnabled: false,
+
+  // Авторитетные начисления для consumable-товаров. Значение из UI/JSON не
+  // считается доверенным и сверяется с этим allow-list.
+  coinPackGrants: Object.freeze({ pack_s: 200, pack_m: 550, pack_l: 1200 }),
 };

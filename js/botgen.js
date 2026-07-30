@@ -3,12 +3,15 @@
 // из проходимых клеток карты. Формат записи — общий протокол replay.js.
 import { Recorder, TICK_RATE } from './replay.js';
 
+// name — ключ словаря, а не готовая подпись: строка выбирается по языку
+// в момент отрисовки (пп. 8.2.3, 2.10).
 const DIFFICULTIES = [
-  { name: 'Лёгкий',  speed: 4.5, jumpEvery: 4.0, strafe: 0.15, accuracy: 0.25, headRate: 0.08, fireEvery: 2.2 },
-  { name: 'Средний', speed: 6.5, jumpEvery: 2.2, strafe: 0.45, accuracy: 0.5,  headRate: 0.18, fireEvery: 1.3 },
-  { name: 'Сложный', speed: 8,   jumpEvery: 1.2, strafe: 0.75, accuracy: 0.72, headRate: 0.32, fireEvery: 0.85 },
+  { name: 'diffEasy',   speed: 4.5, jumpEvery: 4.0, strafe: 0.15, accuracy: 0.25, headRate: 0.08, fireEvery: 2.2 },
+  { name: 'diffNormal', speed: 6.5, jumpEvery: 2.2, strafe: 0.45, accuracy: 0.5,  headRate: 0.18, fireEvery: 1.3 },
+  { name: 'diffHard',   speed: 8,   jumpEvery: 1.2, strafe: 0.75, accuracy: 0.72, headRate: 0.32, fireEvery: 0.85 },
 ];
 
+/** Возвращает ключи словаря — вызывающий код обязан прогнать их через t(). */
 export function botNames() { return DIFFICULTIES.map(d => d.name); }
 
 /** Собирает призрака-бота уровня diff (0..2) для карты mapData. */

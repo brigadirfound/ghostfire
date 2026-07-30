@@ -3,7 +3,7 @@
 // и задержкой реакции 150–300 мс. Поэтому дуэль ощущается как PvP.
 import * as THREE from 'three';
 import { raycastVoxels } from './map.js';
-import { WEAPONS, RAILGUN, buildWeaponModel } from './weapons.js';
+import { WEAPONS, buildWeaponModel, disposeWeaponModel } from './weapons.js';
 import { boxMaterials } from './face.js';
 import { Sound } from './audio.js';
 
@@ -31,6 +31,7 @@ export class Ghost {
     this._shotIdx = 0;
     this._pickupIdx = 0;
     this._pending = [];   // отложенные (реакция) выстрелы
+    this._nextShotScheduleAt = 0;
     this._lastTick = -1;
     this._weapon = 0;
 
@@ -84,7 +85,16 @@ export class Ghost {
     this._animT = 0;
   }
 
-  dispose() { this.scene.remove(this.group); }
+  dispose() {
+    this.scene.remove(this.group);
+    this._pending.length = 0;
+    this._nextShotScheduleAt = 0;
+    for (const model of this.weaponModels) {
+      this.group.remove(model);
+      disposeWeaponModel(model);
+    }
+    disposeObject(this.group);
+  }
 
   reset() {
     this.time = 0;
@@ -93,15 +103,21 @@ export class Ghost {
     this._shotIdx = 0;
     this._pickupIdx = 0;
     this._pending.length = 0;
+    this._nextShotScheduleAt = 0;
     this._lastTick = -1;
+    this._px = undefined;
+    this._pz = undefined;
+    this._animT = 0;
     this._setWeapon(0);
     this.group.visible = true;
     this.update(0, null);
   }
 
   _setWeapon(id) {
+    if (!WEAPONS[id]) return false;
     this._weapon = id;
     this.weaponModels.forEach((m, i) => (m.visible = i === id));
+    return true;
   }
 
   takeDamage(dmg) {
@@ -179,19 +195,48 @@ export class Ghost {
 
     // --- живое прицеливание ---
     // на записанном тике выстрела ставим отложенный выстрел с реакцией 150–300 мс
-    while (this._shotIdx < this.replay.shots.length &&
-           this.replay.shots[this._shotIdx].tick <= s.tick) {
-      const shot = this.replay.shots[this._shotIdx++];
-      const reaction = 0.15 + Math.random() * 0.15;
-      if (WEAPONS[shot.weapon]?.charge > 0) Sound.railCharge(WEAPONS[shot.weapon].charge);
-      this._pending.push({ at: this.time + reaction + (WEAPONS[shot.weapon]?.charge ?? 0) * 0.5, weapon: shot.weapon });
-    }
-    // сработка отложенных выстрелов — в ТЕКУЩУЮ позицию игрока
-    for (let i = this._pending.length - 1; i >= 0; i--) {
-      const pd = this._pending[i];
-      if (this.time < pd.at) continue;
-      this._pending.splice(i, 1);
-      if (player && player.alive) this._fireAt(pd.weapon, player);
+    // reset() вызывает update(0, null), чтобы выставить позу/пикапы до старта.
+    // Боевые события начинаем только после GO — иначе rail charge звучал бы
+    // во время трёхсекундного countdown.
+    if (player) {
+      while (this._shotIdx < this.replay.shots.length &&
+             this.replay.shots[this._shotIdx].tick <= s.tick) {
+        const shot = this.replay.shots[this._shotIdx++];
+        const weapon = WEAPONS[shot.weapon];
+        // Короткая запись (например, one-shot sniper) зацикливается чаще,
+        // чем оружие физически способно стрелять. Не копим очередь одинаковых
+        // выстрелов на каждом обороте replay — соблюдаем charge + cooldown.
+        if (!weapon || this.time < this._nextShotScheduleAt) continue;
+        const reaction = 0.15 + Math.random() * 0.15;
+        const chargeAt = this.time + reaction;
+        const fireAt = chargeAt + weapon.charge;
+        this._pending.push({ at: chargeAt, weapon: shot.weapon, charging: weapon.charge > 0 });
+        this._nextShotScheduleAt = fireAt + weapon.cooldown;
+      }
+      // сработка отложенных выстрелов — в ТЕКУЩУЮ позицию игрока
+      for (let i = this._pending.length - 1; i >= 0; i--) {
+        const pd = this._pending[i];
+        if (this.time < pd.at) continue;
+        if (pd.charging) {
+          const charge = WEAPONS[pd.weapon].charge;
+          Sound.railCharge(charge);
+          pd.charging = false;
+          pd.at = this.time + charge;
+          this._nextShotScheduleAt = Math.max(
+            this._nextShotScheduleAt,
+            pd.at + WEAPONS[pd.weapon].cooldown,
+          );
+          continue;
+        }
+        this._pending.splice(i, 1);
+        if (player.alive) {
+          this._fireAt(pd.weapon, player);
+          this._nextShotScheduleAt = Math.max(
+            this._nextShotScheduleAt,
+            this.time + WEAPONS[pd.weapon].cooldown,
+          );
+        }
+      }
     }
     void prevY;
   }
@@ -221,9 +266,8 @@ export class Ghost {
     }
     // LOS: если стена ближе цели, выстрел уйдёт в стену (трассер честный) —
     // это решает fireHitscan в game.js через raycastVoxels
-    if (weaponId === 0) Sound.pistol();
-    else if (weaponId === 1) Sound.shotgun();
-    else Sound.railgun();
+    const weapon = WEAPONS[weaponId];
+    Sound[weapon?.sound]?.();
     this.onShoot(weaponId, origin, dir);
   }
 
@@ -234,4 +278,20 @@ export class Ghost {
     const dist = d.length();
     return raycastVoxels(this.map, origin, d.normalize(), dist) >= dist - 0.05;
   }
+}
+
+function disposeObject(root) {
+  const geometries = new Set(), materials = new Set(), textures = new Set();
+  root.traverse((o) => {
+    if (o.geometry) geometries.add(o.geometry);
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const mat of mats) {
+      materials.add(mat);
+      if (mat.map) textures.add(mat.map);
+    }
+  });
+  textures.forEach(t => t.dispose());
+  materials.forEach(m => m.dispose());
+  geometries.forEach(g => g.dispose());
+  root.clear();
 }

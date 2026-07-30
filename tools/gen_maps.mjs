@@ -1,7 +1,7 @@
 // Одноразовый генератор maps/*.json. Пишет обычные JSON-карты —
 // игра читает только JSON, этот скрипт ей не нужен (задел под редактор).
 // Запуск: node tools/gen_maps.mjs
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 function makeMap(id, name, palette) {
   const blocks = new Map(); // "x|y|z" -> type
@@ -18,13 +18,19 @@ function makeMap(id, name, palette) {
   };
   return {
     put, fill, clear,
-    save(spawns, weapons) {
+    save(spawns, weapons, options = {}) {
       const arr = [...blocks.entries()].map(([k, t]) => {
         const [x, y, z] = k.split('|').map(Number);
         return [x, y, z, t];
-      });
-      const json = { id, name, palette, blocks: arr, spawns, weapons };
-      writeFileSync(new URL(`../maps/${id}.json`, import.meta.url), JSON.stringify(json));
+      }).sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
+      const output = new URL(`../maps/${id}.json`, import.meta.url);
+      let previousSkybox;
+      if (existsSync(output)) {
+        try { previousSkybox = JSON.parse(readFileSync(output, 'utf8')).skybox; } catch { /* validator will report bad JSON */ }
+      }
+      const skybox = options.skybox === null ? undefined : (options.skybox ?? previousSkybox);
+      const json = { id, name, palette, blocks: arr, spawns, weapons, ...(skybox ? { skybox } : {}) };
+      writeFileSync(output, `${JSON.stringify(json)}\n`);
       console.log(`${id}: ${arr.length} blocks`);
     },
   };
