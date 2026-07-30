@@ -127,7 +127,8 @@ test('audio stopAll cancels active sources without replacing the context', () =>
   Sound.smg();
   Sound.assault();
   Sound.sniper();
-  assert.equal(sources.length, 9); // 2 + 2 + 2 + 3 tracked layers
+  // Выстрел собирается из слоёв: crack + thump (+ mech у пистолета и автомата).
+  assert.equal(sources.length, 11); // 3 + 2 + 3 + 3
   Sound.stopAll();
   assert.ok(sources.every((source) => source.stopCalls >= 1 && source.disconnects === 1));
   Sound.init();

@@ -1,6 +1,7 @@
 // Звук: полный синтез через Web Audio, никаких файлов.
 let ctx = null;
 let master = null;
+let reverb = null;   // общий хвост помещения для выстрелов
 let enabled = true;
 const activeSources = new Set();
 
@@ -11,6 +12,7 @@ export const Sound = {
     master = ctx.createGain();
     master.gain.value = 0.5;
     master.connect(ctx.destination);
+    buildReverb();
   },
   resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); },
   /** Глушим на время рекламы и при сворачивании вкладки. */
@@ -25,18 +27,16 @@ export const Sound = {
   },
   setEnabled(v) { enabled = v; if (master) master.gain.value = v ? 0.5 : 0; },
 
-  pistol() { shotBase(900, 0.09, 'square', 0.5); noiseBurst(0.05, 2200, 0.25); },
-  // Очень короткий высокий щелчок: не превращается в гул при 11 выстр./с.
-  smg() { shotBase(1350, 0.05, 'square', 0.28); noiseBurst(0.028, 3000, 0.12); },
-  // Более низкий и тяжёлый импульс, чем pistol/SMG.
-  assault() { shotBase(620, 0.11, 'sawtooth', 0.42); noiseBurst(0.065, 1800, 0.26); },
-  shotgun() { noiseBurst(0.22, 900, 0.9); shotBase(150, 0.18, 'sawtooth', 0.6); },
-  // Резкий дальний crack + короткий низкочастотный удар, без rail charge.
-  sniper() {
-    noiseBurst(0.16, 3600, 0.55);
-    shotBase(1150, 0.18, 'sawtooth', 0.4);
-    shotBase(85, 0.24, 'sine', 0.32);
-  },
+  // Выстрел собирается из трёх слоёв, как настоящий: сухой щелчок пороха
+  // (crack), низкий удар ствола (thump) и хвост-отражение от стен арены
+  // (send в reverb). Одиночный осциллятор звучал «пикалкой» — слои дают вес.
+  pistol() { crack(0.035, 0.55, 1400); thump(430, 0.09, 0.45); mech(0.05, 0.1); },
+  // Очень короткий щелчок: при 11 выстр./с длинные хвосты сливаются в гул.
+  smg() { crack(0.018, 0.32, 2200); thump(520, 0.045, 0.24); },
+  assault() { crack(0.03, 0.5, 1100); thump(300, 0.1, 0.42); mech(0.055, 0.08); },
+  shotgun() { crack(0.06, 0.85, 600); thump(120, 0.24, 0.7); noiseBurst(0.22, 900, 0.5); },
+  // Дальний резкий crack и тяжёлый низ: снайперку слышно через всю карту.
+  sniper() { crack(0.07, 0.9, 1900); thump(90, 0.32, 0.6); thump(240, 0.14, 0.3); },
   railCharge(dur = 0.8) {
     if (!ok()) return;
     const o = track(ctx.createOscillator()), g = ctx.createGain();
@@ -50,9 +50,9 @@ export const Sound = {
     o.start(); o.stop(ctx.currentTime + dur + 0.1);
   },
   railgun() {
-    noiseBurst(0.3, 4000, 0.7);
-    shotBase(1800, 0.25, 'sawtooth', 0.5);
-    shotBase(90, 0.3, 'square', 0.5);
+    crack(0.05, 0.7, 2600);
+    shotBase(1800, 0.25, 'sawtooth', 0.45);
+    thump(80, 0.34, 0.55);
   },
   // Сброс обоймы — глухой стук с призвуком металла; посадка новой — щелчок
   // затвора. Два раздельных звука обозначают начало и конец перезарядки.
@@ -71,6 +71,92 @@ export const Sound = {
 };
 
 function ok() { return ctx && enabled; }
+
+/**
+ * Короткий процедурный «зал»: экспоненциально затухающий шум как impulse
+ * response. Без него выстрелы звучат так, будто игрок стреляет в вате.
+ * Тестовый AudioContext конвольвера не имеет — тогда работаем сухими.
+ */
+function buildReverb() {
+  reverb = null;
+  if (typeof ctx.createConvolver !== 'function') return;
+  const seconds = 0.32;
+  const length = Math.floor(ctx.sampleRate * seconds);
+  const impulse = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = impulse.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2.6;
+  }
+  const node = ctx.createConvolver();
+  node.buffer = impulse;
+  const send = ctx.createGain();
+  send.gain.value = 0.26;   // хвост слышен, но не размазывает атаку
+  node.connect(send).connect(master);
+  reverb = node;
+}
+
+/** Подключает слой и к прямому сигналу, и к хвосту помещения. */
+function toBus(node, wet = 1) {
+  node.connect(master);
+  if (!reverb || wet <= 0) return node;
+  const send = ctx.createGain();
+  send.gain.value = wet;
+  node.connect(send).connect(reverb);
+  return node;
+}
+
+/** Сухой щелчок пороха: высокочастотный шум с очень быстрым спадом. */
+function crack(dur, vol, highpass) {
+  if (!ok()) return;
+  const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) {
+    const k = i / n;
+    d[i] = (Math.random() * 2 - 1) * (1 - k) ** 3; // мгновенная атака, крутой спад
+  }
+  const src = track(ctx.createBufferSource());
+  src.buffer = buf;
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = highpass;
+  const g = ctx.createGain();
+  g.gain.value = vol;
+  src.connect(hp).connect(g);
+  toBus(g, 0.5);
+  src.start();
+}
+
+/** Низкий удар ствола: питч резко падает — это и даёт «вес» выстрела. */
+function thump(freq, dur, vol) {
+  if (!ok()) return;
+  const t0 = ctx.currentTime;
+  const o = track(ctx.createOscillator());
+  const g = ctx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(freq, t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * 0.18), t0 + dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g);
+  toBus(g, 0.35);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+
+/** Механика: гильза и затвор через несколько миллисекунд после выстрела. */
+function mech(delay, vol) {
+  if (!ok()) return;
+  const t0 = ctx.currentTime + delay;
+  const o = track(ctx.createOscillator());
+  const g = ctx.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(2600, t0);
+  o.frequency.exponentialRampToValueAtTime(1500, t0 + 0.03);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.045);
+  o.connect(g);
+  toBus(g, 0.4);
+  o.start(t0); o.stop(t0 + 0.06);
+}
 
 function shotBase(freq, dur, type, vol) {
   if (!ok()) return;
