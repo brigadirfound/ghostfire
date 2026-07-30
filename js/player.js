@@ -1,7 +1,10 @@
 // FPS-контроллер: резкое аркадное движение без инерции, распрыжка разрешена.
 import * as THREE from 'three';
 import { moveAABB } from './map.js';
-import { WEAPONS, RAILGUN, VIEW_POSE, leftHandPoint, rightHandPoint, buildWeaponModel, disposeWeaponModel } from './weapons.js';
+import {
+  WEAPONS, RAILGUN, VIEW_POSE, viewScale, leftHandPoint, rightHandPoint,
+  buildWeaponModel, disposeWeaponModel,
+} from './weapons.js';
 import { Sound } from './audio.js';
 import { buildHand, HAND_REST, HAND_SCALE } from './hands.js';
 
@@ -69,7 +72,7 @@ export class Player {
     this.viewModels = WEAPONS.map(w => {
       const m = buildWeaponModel(w.id, this.skin);
       const pose = VIEW_POSE[w.key];
-      m.scale.setScalar(pose.scale);
+      m.scale.setScalar(viewScale(w.key));
       m.position.set(...pose.pos);
       m.rotation.set(...pose.rot);
       m.visible = false;

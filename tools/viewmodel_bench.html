@@ -1,6 +1,9 @@
 <!-- Стенд подбора позы вьюмодели: tools/ не попадает в релизный whitelist.
      Открывать так: http://localhost:8123/tools/viewmodel_bench.html?w=sniper -->
 <meta charset="utf-8">
+<!-- База — корень сайта: js/weapons.js грузит модели относительным путём
+     assets/weapons/*.gltf, и из /tools/ они бы 404-ились. -->
+<base href="/">
 <title>viewmodel bench</title>
 <style>html,body{margin:0;height:100%;background:#2b3542;overflow:hidden}
 #label{position:fixed;left:12px;top:10px;font:700 20px system-ui;color:#fff;text-shadow:2px 2px 0 #000}
@@ -9,20 +12,22 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "../vendor/three.module.js",
-    "three/addons/": "../vendor/addons/"
+    "three": "/vendor/three.module.js",
+    "three/addons/": "/vendor/addons/"
   }
 }
 </script>
 <div id="label"></div><div id="cross"></div><div id="cross2"></div>
 <script type="module">
 import * as THREE from 'three';
-import { WEAPONS, VIEW_POSE, leftHandPoint, rightHandPoint, buildWeaponModel, preloadWeaponModels } from '../js/weapons.js';
-import { buildHand, HAND_REST, HAND_SCALE } from '../js/hands.js';
+import { WEAPONS, VIEW_POSE, viewScale, leftHandPoint, rightHandPoint, buildWeaponModel, preloadWeaponModels } from '/js/weapons.js';
+import { buildHand, HAND_REST, HAND_SCALE } from '/js/hands.js';
 
-const key = new URLSearchParams(location.search).get('w') ?? 'pistol';
+const params = new URLSearchParams(location.search);
+const mode = params.get('mode') ?? 'view';
+const key = params.get('w') ?? 'pistol';
 const weapon = WEAPONS.find(w => w.key === key) ?? WEAPONS[0];
-document.getElementById('label').textContent = `${weapon.key} · scale ${VIEW_POSE[weapon.key].scale}`;
+document.getElementById('label').textContent = `${weapon.key} · длина в кадре ${VIEW_POSE[weapon.key].length} м`;
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(innerWidth, innerHeight);
@@ -49,12 +54,43 @@ for (let i = 0; i < 5; i++) {
 const camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 200);
 scene.add(camera);
 
-const skin = await (await fetch('../skins/default.json')).json();
+const skin = await (await fetch('/skins/default.json')).json();
 await preloadWeaponModels();
+
+if (mode === 'world') {
+  // Все пушки в ряд на земле, как пикапы, рядом ростовой силуэт 1.7 м.
+  document.getElementById('label').textContent = 'мировой масштаб (пикапы), силуэт 1.7 м';
+  camera.position.set(0, -0.55, 1.6);
+  camera.lookAt(0, -1.05, -1.5);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.7, 0.4),
+    new THREE.MeshLambertMaterial({ color: '#3a5a8a' }));
+  body.position.set(-3.4, -1.6 + 0.85, -1.5);
+  scene.add(body);
+  WEAPONS.forEach((w, i) => {
+    const model = buildWeaponModel(w.id, skin);
+    model.position.set(-2.2 + i * 0.95, -1.15, -1.5);
+    model.rotation.y = Math.PI / 2; // боком к камере — видна полная длина
+    scene.add(model);
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.02),
+      new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+    tick.position.set(-2.2 + i * 0.95, -1.5, -1.5);
+    scene.add(tick);
+  });
+  const loop = () => { renderer.render(scene, camera); requestAnimationFrame(loop); };
+  loop();
+  setTimeout(() => {
+    window.__benchInfo = WEAPONS.map((w, i) => {
+      const holder = scene.children.find(o => o.userData.weaponHolder && Math.abs(o.position.x - (-2.2 + i * 0.95)) < 0.01);
+      const box = holder ? new THREE.Box3().setFromObject(holder) : null;
+      return `${w.key}:${holder?.children.length ?? 'нет'}:${box ? (box.max.z - box.min.z).toFixed(2) : '-'}`;
+    }).join(' ');
+    window.__benchReady = true;
+  }, 2_500);
+} else {
 
 const pose = VIEW_POSE[weapon.key];
 const model = buildWeaponModel(weapon.id, skin);
-model.scale.setScalar(pose.scale);
+model.scale.setScalar(viewScale(weapon.key));
 model.position.set(...pose.pos);
 model.rotation.set(...pose.rot);
 camera.add(model);
@@ -78,4 +114,5 @@ if (leftPose) {
 const tick = () => { renderer.render(scene, camera); requestAnimationFrame(tick); };
 tick();
 setTimeout(() => { window.__benchReady = true; }, 400);
+}
 </script>

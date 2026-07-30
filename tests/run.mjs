@@ -175,7 +175,12 @@ test('every weapon carries a magazine, reload time and a left-hand pose', () => 
     assert.ok(field(row, 'reload') > 0, `${key}: время перезарядки не задано`);
     assert.ok(field(row, 'viewKick') >= 0, `${key}: нет визуальной отдачи`);
     assert.match(hands, new RegExp(`\\b${key}:`), `${key}: нет смещения левой руки`);
-    assert.match(viewPoses, new RegExp(`\\b${key}:\\s*\\{ scale:`), `${key}: нет позы вьюмодели`);
+    const view = viewPoses.match(new RegExp(`\\b${key}:\\s*\\{ length: ([\\d.]+)`));
+    assert.ok(view, `${key}: нет позы вьюмодели`);
+    // Пушка в кадре — от пистолета до снайперки. Выход за рамки означает
+    // опечатку в длине: модель либо займёт пол-экрана, либо потеряется.
+    const viewLength = Number(view[1]);
+    assert.ok(viewLength >= 0.3 && viewLength <= 1, `${key}: длина в кадре ${viewLength} м вне разумного`);
     // Оптика только у снайперки: временная отладочная выдача её другой пушке
     // не должна уехать в релиз.
     const zoom = field(row, 'zoomFov');
