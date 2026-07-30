@@ -111,6 +111,10 @@ Suno API моделью `suno-v5-5` инструментом `tools/gen_music.mj
 инструментом `tools/gen_icons.mjs`. Промпты, request id и SHA-256 записаны в
 `assets/icons/PROVENANCE.md`.
 
+`assets/skins/*.jpg` — карточки скинов для магазина, тот же провайдер,
+`tools/gen_skin_cards.mjs`; палитра каждой карточки берётся из `skins/shop.json`.
+Промпты и SHA-256 — в `assets/skins/PROVENANCE.md`.
+
 `assets/hud/*.png` — силуэты пушек для HUD, отрендерены из тех же GLTF-моделей
 (Quaternius, CC0), что игрок держит в руках; генератор — `tools/viewmodel_bench.html`
 в режиме `?mode=icon`. Отдельной лицензии не требуют, наследуют CC0 моделей.

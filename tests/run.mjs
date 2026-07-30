@@ -213,6 +213,18 @@ test('every arena has its own music track and none of them is oversized', () => 
   assert.match(generator, /process\.env\.SUNO_API_KEY/);
 });
 
+test('paid packs stay disabled and skin prices never come from the UI', () => {
+  const config = readFileSync(new URL('../js/config.js', import.meta.url), 'utf8');
+  // Задел на покупки: код готов, но в этом релизе флаг обязан быть выключен.
+  assert.match(config, /paymentsEnabled:\s*false/);
+  assert.match(config, /coinPackGrants:\s*Object\.freeze/);
+  const game = readFileSync(new URL('../js/game.js', import.meta.url), 'utf8');
+  assert.match(game, /function catalogSkinPrice/);
+  assert.match(game, /const price = catalogSkinPrice\(id\)/);
+  const ui = readFileSync(new URL('../js/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /if \(CONFIG\.paymentsEnabled\)/);
+});
+
 test('UI assets are present, light and self-hosted', () => {
   const icons = ['play', 'code', 'shop', 'editor', 'settings', 'heart', 'ammo', 'reload', 'ghost'];
   for (const icon of icons) {

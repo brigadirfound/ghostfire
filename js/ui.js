@@ -12,6 +12,13 @@ import { BUILTIN_MULTS, CUSTOM_BOT_MULTS } from './economy.js';
 
 const BUILTIN_MAPS = ['arena01', 'arena02', 'arena03', 'arena04', 'arena05'];
 const BUILTIN_GHOSTS = ['shadow', 'smoke', 'phantom', 'mirage', 'inferno'];
+const TIP_COUNT = 8; // строки tip1…tip8 в i18n
+// Палитра стандартного скина для превью в магазине: сам skins/default.json
+// грузит игра, а магазину нужны только цвета.
+const DEFAULT_SKIN_PREVIEW = Object.freeze({
+  body: { head: '#ffcc88', torso: '#2277dd', legs: '#1b3a5c' }, tracer: '#ffdd55',
+});
+const safeColor = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(value ?? '') ? value : fallback);
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -84,7 +91,7 @@ export class UI {
    */
   constructor(actions) {
     this.a = actions;
-    this.screens = ['menu', 'maps', 'ghosts', 'challenge', 'shop', 'settings', 'pause', 'round', 'match'];
+    this.screens = ['menu', 'maps', 'ghosts', 'challenge', 'shop', 'howto', 'settings', 'pause', 'round', 'match'];
     this.selectedMap = 'arena01';
   }
 
@@ -126,10 +133,9 @@ export class UI {
     clear(s);
     const logo = el('div', 'logo', 'GHOST');
     logo.append(el('span', '', 'FIRE'));
-    s.append(
-      logo,
-      el('div', 'subtitle', '1v1 · voxel duel'),
-    );
+    // Вместо английского слогана — подсказка на языке игрока, своя на каждый
+    // заход в меню: место работает, а не занимает строку.
+    s.append(logo, el('div', 'subtitle', t(`tip${1 + Math.floor(Math.random() * TIP_COUNT)}`)));
     // "Быстрый матч" повторяет последний выбор карта+противник в один тап
     if (this._quickPickValid()) {
       s.append(this._btn(t('quickMatch'), 'primary', () => this.quickMatch(), 'play'));
@@ -143,10 +149,38 @@ export class UI {
       this._btn(t('haveCode'), '', () => this.buildChallenge(), 'code'),
       this._btn(t('shop'), '', () => this.buildShop(), 'shop'),
       this._btn(t('editor'), '', () => { location.href = 'editor.html'; }, 'editor'),
+      this._btn(t('howTo'), '', () => this.buildHowTo(), 'howto'),
       this._btn(t('settings'), '', () => this.buildSettings(), 'settings'),
     );
     this.show('menu');
     this._inBuildMenu = false;
+  }
+
+  /** Короткая справка: цель, призрак, управление, оружие, награда, вызов. */
+  buildHowTo() {
+    const s = $('screen-howto');
+    clear(s);
+    s.append(el('h2', '', t('howTo')));
+    const sections = [
+      ['howToGoal', 'howToGoalText', 'play'],
+      ['howToGhost', 'howToGhostText', 'ghost'],
+      ['howToControls', 'howToControlsText', 'settings'],
+      ['howToWeapons', 'howToWeaponsText', 'ammo'],
+      ['howToRewards', 'howToRewardsText', 'shop'],
+      ['howToShare', 'howToShareText', 'code'],
+    ];
+    for (const [title, text, icon] of sections) {
+      const card = el('div', 'howto-card');
+      const head = el('div', 'howto-head');
+      const img = el('img', 'icon');
+      img.src = `assets/icons/${icon}.png`;
+      img.alt = '';
+      head.append(img, el('div', 'howto-title', t(title)));
+      card.append(head, el('div', 'howto-text', t(text)));
+      s.append(card);
+    }
+    s.append(this._btn(t('back'), 'small', () => this.show('menu')));
+    this.show('howto');
   }
 
   buildMaps() {
@@ -348,42 +382,55 @@ export class UI {
     }
     // скины: дефолт + магазинные + слот "Свой скин" (редактор)
     const grid = el('div', 'row');
-    const dot = (color) => {
-      const node = el('span');
-      node.style.cssText = 'display:inline-block;width:16px;height:16px;border-radius:4px;margin-right:4px;vertical-align:middle';
-      node.style.backgroundColor = /^#[0-9a-f]{6}$/i.test(color ?? '') ? color : '#777777';
-      return node;
-    };
     const items = [
-      { id: 'default', name: t('skinDefault'), price: 0, skin: null },
+      { id: 'default', name: t('skinDefault'), price: 0, skin: DEFAULT_SKIN_PREVIEW },
       ...shop.skins,
       { id: 'custom', name: t('customSkin'), price: shop.customSkinPrice, skin: null, isCustom: true },
     ];
     for (const item of items) {
-      const card = el('div', 'map-card');
-      const sk = item.skin;
-      const dots = el('div');
-      if (item.isCustom) dots.textContent = '🎨✏️👻';
-      else {
-        const colors = sk
-          ? [sk.body?.head, sk.body?.torso, sk.weapons?.railgun?.accent, sk.tracer]
-          : ['#ffcc88', '#2277dd', '#33ddff', '#ffdd55'];
-        dots.append(...colors.map(dot));
-      }
+      const card = el('div', 'skin-card');
       const owned = wallet.owned.includes(item.id);
       const equipped = (wallet.equipped ?? 'default') === item.id;
-      const state = equipped ? t('equipped') : owned ? t('equip') : `${owned ? '' : item.isCustom ? '🔒 ' : ''}${item.price} 👻`;
-      const desc = el('div', 'map-desc', state);
-      if (item.isCustom) desc.append(document.createElement('br'), document.createTextNode(t('customSkinDesc')));
       const itemName = item.id === 'default' || item.id === 'custom'
         ? item.name
         : localizedName('skin', item.id);
-      card.append(
-        el('div', 'map-name', itemName),
-        dots,
-        desc,
-      );
+
+      // Превью: силуэт призрака в цветах самого скина поверх градиента из его
+      // палитры. Четыре цветные точки не давали понять, как скин выглядит.
+      const preview = el('div', 'skin-preview');
+      const body = item.skin?.body ?? {};
+      const torso = safeColor(body.torso, '#2277dd');
+      const legs = safeColor(body.legs, '#101820');
+      const accent = safeColor(item.skin?.tracer, '#33ddff');
+      preview.style.background = item.isCustom
+        ? 'conic-gradient(from 210deg, #ff5533, #ffd75e, #33ddff, #a05eff, #ff5533)'
+        : `radial-gradient(circle at 50% 120%, ${torso} 0%, ${legs} 70%, #0b0f14 100%)`;
+      const figure = el('div', 'skin-figure');
+      figure.style.backgroundColor = item.isCustom ? '#ffffff' : safeColor(body.head, '#ffcc88');
+      preview.append(figure);
+      const stripe = el('div', 'skin-stripe');
+      stripe.style.backgroundColor = accent;
+      preview.append(stripe);
+      // Карточка от генератора, если её уже сгенерировали (tools/gen_skin_cards.mjs).
+      const art = el('img', 'skin-art');
+      art.alt = '';
+      art.src = `assets/skins/${item.id}.jpg`;
+      art.onload = () => preview.classList.add('has-art');
+      art.onerror = () => art.remove();
+      preview.append(art);
+
+      const priceRow = el('div', 'skin-price');
+      if (equipped) priceRow.append(el('span', 'skin-state', t('equipped')));
+      else if (owned) priceRow.append(el('span', 'skin-state', t('equip')));
+      else {
+        if (item.isCustom) priceRow.append(el('span', 'skin-lock', '🔒'));
+        priceRow.append(el('b', '', item.price), el('span', 'skin-coin', '👻'));
+      }
+
+      card.append(preview, el('div', 'skin-name', itemName), priceRow);
+      if (item.isCustom) card.append(el('div', 'skin-note', t('customSkinDesc')));
       if (equipped) card.classList.add('selected');
+      if (!owned && !equipped && wallet.coins < item.price) card.classList.add('locked');
       card.onclick = async () => {
         if (equipped) return;
         const res = await this.a.buyOrEquipSkin(item);

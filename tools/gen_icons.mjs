@@ -35,6 +35,7 @@ const ICONS = [
   { id: 'ammo', prompt: `${STYLE}, a rifle magazine seen from the side, rounded top` },
   { id: 'reload', prompt: `${STYLE}, two arrows forming a circular refresh loop` },
   { id: 'ghost', prompt: `${STYLE}, a blocky voxel ghost with a wavy bottom edge and two eyes` },
+  { id: 'howto', prompt: `${STYLE}, a question mark inside a rounded square badge` },
 ];
 
 function readLocalEnv() {

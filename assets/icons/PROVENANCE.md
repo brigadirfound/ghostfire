@@ -8,12 +8,13 @@
 | play.png | c36b02bcff6d3b8b… | 4 | — |
 | code.png | e87ec99393f4dc5a… | 2 | — |
 | shop.png | 8455eca6d6904bb2… | 4 | — |
-| editor.png | f4c2565f861a31c1… | 10 | 1f793aeb-9179-4bd1-95fd-ef9b154e0a6b |
+| editor.png | f4c2565f861a31c1… | 10 | — |
 | settings.png | 3433cd865048159d… | 11 | — |
 | heart.png | 06b2a4646a2f899d… | 3 | — |
 | ammo.png | 2749e6b145ce87ee… | 6 | — |
 | reload.png | b8a414d783e303e7… | 7 | — |
 | ghost.png | 732ccd30fc990c78… | 5 | — |
+| howto.png | 3df847a292f24d0c… | 6 | b58c12b9-1c4b-46e2-99ec-de320a88a3d4 |
 
 ## Промпты
 
@@ -69,4 +70,10 @@ flat vector game UI icon, single centered symbol, thick bold shapes, no gradient
 
 ```
 flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a blocky voxel ghost with a wavy bottom edge and two eyes
+```
+
+### howto.png
+
+```
+flat vector game UI icon, single centered symbol, thick bold shapes, no gradients, no text, no letters, no watermark, high contrast, pure white symbol on pure black background, sharp edges, minimal detail, a question mark inside a rounded square badge
 ```
