@@ -28,6 +28,7 @@ const MOODS = {
   void: 'deep space void, violet energy glow around the silhouette, mysterious',
   crimson: 'burning red battlefield haze, embers in the air, aggressive',
   custom: 'bright creative workshop with paint splashes and color swatches',
+  default: 'concrete training range at dusk, plain and functional, cold blue light',
 };
 
 const STYLE = 'blocky voxel character in a first-person shooter, cube head with large flat face, ' +
@@ -55,7 +56,9 @@ const model = process.env.VISIONARY_MODEL || env.VISIONARY_MODEL || 'nano-banana
 
 function jobs() {
   const shop = JSON.parse(fs.readFileSync(path.join(ROOT, 'skins/shop.json'), 'utf8'));
-  const list = shop.skins.map((item) => {
+  // Стандартный скин лежит отдельным файлом, но в магазине он такая же карточка.
+  const base = JSON.parse(fs.readFileSync(path.join(ROOT, 'skins/default.json'), 'utf8'));
+  const list = [{ id: 'default', skin: base }, ...shop.skins].map((item) => {
     const body = item.skin?.body ?? {};
     const palette = `body color ${body.torso}, skin tone ${body.head}, legs ${body.legs}, ` +
       `glowing accents ${item.skin?.tracer}`;

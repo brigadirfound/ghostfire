@@ -5,13 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GHOSTFIRE — Редактор</title>
 <style>
+  /* Игровой шрифт: Russo One на заголовки и кнопки, Exo 2 на текст и цифры.
+     Оба OFL, лежат в assets/fonts — self-host, как и всё остальное. */
+  @font-face { font-family: 'Russo One'; src: url('assets/fonts/russo-one-latin.woff2') format('woff2');
+    font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215; }
+  @font-face { font-family: 'Russo One'; src: url('assets/fonts/russo-one-cyrillic.woff2') format('woff2');
+    font-weight: 400; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Exo 2'; src: url('assets/fonts/exo2-latin-600.woff2') format('woff2');
+    font-weight: 600; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122; }
+  @font-face { font-family: 'Exo 2'; src: url('assets/fonts/exo2-cyrillic-600.woff2') format('woff2');
+    font-weight: 600; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Exo 2'; src: url('assets/fonts/exo2-latin-800i.woff2') format('woff2');
+    font-weight: 800; font-style: italic; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122; }
+  @font-face { font-family: 'Exo 2'; src: url('assets/fonts/exo2-cyrillic-800i.woff2') format('woff2');
+    font-weight: 800; font-style: italic; font-display: swap; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+</style>
+<style>
   :root { --accent: #ff5533; --accent2: #33ddff; --bg: #101418; --panel: #1a2028; --safe-top: env(safe-area-inset-top, 0px); --topbar-height: calc(52px + var(--safe-top)); --tools-width: 240px; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: #fff; font-family: 'Exo 2', 'Segoe UI', system-ui, sans-serif; }
   .hidden { display: none !important; }
 
   #topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-height); background: var(--panel); display: flex; align-items: center; gap: 10px; padding: var(--safe-top) max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px)); z-index: 10; border-bottom: 2px solid #2a3038; overflow-x: auto; white-space: nowrap; }
-  .btn { padding: 8px 16px; font-size: 14px; font-weight: 700; color: #fff; background: #232a33; border: 2px solid #3a4450; border-radius: 6px; cursor: pointer; text-decoration: none; }
+  /* Тот же игровой шрифт, что в меню игры: вкладки и заголовки — Russo One. */
+  .btn { font-family: 'Russo One', 'Exo 2', sans-serif; font-weight: 400; letter-spacing: .3px;
+    padding: 8px 16px; font-size: 14px; color: #fff; background: #232a33; border: 2px solid #3a4450; border-radius: 6px; cursor: pointer; text-decoration: none; }
+  .tools h3, #topbar .title { font-family: 'Russo One', 'Exo 2', sans-serif; font-weight: 400; letter-spacing: 1px; }
   .btn:hover { border-color: var(--accent); }
   .btn.active { border-color: var(--accent2); background: #2a3644; }
   .btn.primary { background: var(--accent); border-color: #ff7755; }
