@@ -29,7 +29,9 @@ const key = params.get('w') ?? 'pistol';
 const weapon = WEAPONS.find(w => w.key === key) ?? WEAPONS[0];
 document.getElementById('label').textContent = `${weapon.key} · длина в кадре ${VIEW_POSE[weapon.key].length} м`;
 
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+// alpha: true обязателен для режима icon — иначе canvas непрозрачен и
+// силуэт уезжает в HUD вместе с чёрным прямоугольником.
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(innerWidth, innerHeight);
 document.body.append(renderer.domElement);
 const scene = new THREE.Scene();
@@ -57,7 +59,31 @@ scene.add(camera);
 const skin = await (await fetch('/skins/default.json')).json();
 await preloadWeaponModels();
 
-if (mode === 'world') {
+if (mode === 'icon') {
+  // Силуэт пушки для HUD: строго сбоку, без фона и без кистей.
+  document.getElementById('label').remove();
+  document.getElementById('cross').remove();
+  document.getElementById('cross2').remove();
+  scene.background = null;
+  renderer.setClearColor(0x000000, 0);
+  // omitBackground в снимке работает только если страница действительно
+  // прозрачна — CSS-фон стенда надо снять.
+  document.documentElement.style.background = 'transparent';
+  document.body.style.background = 'transparent';
+  floor.visible = false;
+  scene.remove(floor);
+  for (const box of [...scene.children]) if (box.geometry?.type === 'BoxGeometry') scene.remove(box);
+  const model = buildWeaponModel(weapon.id, skin);
+  model.rotation.y = Math.PI / 2;   // боком: видна вся длина
+  scene.add(model);
+  const camera2 = new THREE.OrthographicCamera(-0.75, 0.75, 0.38, -0.38, 0.01, 10);
+  camera2.position.set(0, 0, 2);
+  camera2.lookAt(0, 0, 0);
+  scene.add(new THREE.DirectionalLight('#ffffff', 2.2).translateZ(4));
+  const loop = () => { renderer.render(scene, camera2); requestAnimationFrame(loop); };
+  loop();
+  setTimeout(() => { window.__benchReady = true; }, 1_800);
+} else if (mode === 'world') {
   // Все пушки в ряд на земле, как пикапы, рядом ростовой силуэт 1.7 м.
   document.getElementById('label').textContent = 'мировой масштаб (пикапы), силуэт 1.7 м';
   camera.position.set(0, -0.55, 1.6);

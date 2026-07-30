@@ -132,18 +132,18 @@ export class UI {
     );
     // "Быстрый матч" повторяет последний выбор карта+противник в один тап
     if (this._quickPickValid()) {
-      s.append(this._btn(t('quickMatch') + ' ⚡', 'primary', () => this.quickMatch()));
+      s.append(this._btn(t('quickMatch'), 'primary', () => this.quickMatch(), 'play'));
     }
     s.append(
       this._btn(t('play'), this._quickPickValid() ? '' : 'primary', () => {
         // первый запуск — туториал вместо выбора карты
         if (this.a.shouldTutorial()) this.a.startTutorial();
         else this.buildMaps();
-      }),
-      this._btn(t('haveCode'), '', () => this.buildChallenge()),
-      this._btn(t('shop') + ' 👻', '', () => this.buildShop()),
-      this._btn(t('editor'), '', () => { location.href = 'editor.html'; }),
-      this._btn(t('settings'), '', () => this.buildSettings()),
+      }, 'ghost'),
+      this._btn(t('haveCode'), '', () => this.buildChallenge(), 'code'),
+      this._btn(t('shop'), '', () => this.buildShop(), 'shop'),
+      this._btn(t('editor'), '', () => { location.href = 'editor.html'; }, 'editor'),
+      this._btn(t('settings'), '', () => this.buildSettings(), 'settings'),
     );
     this.show('menu');
     this._inBuildMenu = false;
@@ -604,7 +604,7 @@ export class UI {
   // ---------- HUD ----------
 
   setHP(hp) {
-    $('hp-num').textContent = Math.max(0, Math.round(hp));
+    $('hp-value').textContent = Math.max(0, Math.round(hp));
     $('hp-fill').style.width = Math.max(0, hp) + '%';
     $('damage-vignette').style.opacity = hp < 100 ? String(0.2 + (1 - hp / 100) * 0.5) : '0';
   }
@@ -613,7 +613,13 @@ export class UI {
     v.style.opacity = '1';
     setTimeout(() => this.setHP(this._lastHp ?? 100), 120);
   }
-  setWeapon(key) { $('weapon-name').textContent = t(key); }
+  setWeapon(key) {
+    $('weapon-name').textContent = t(key);
+    // Силуэт снят с той же GLTF-модели, что игрок держит в руках.
+    const silhouette = $('weapon-silhouette');
+    const src = `assets/hud/${key}.png`;
+    if (silhouette && !silhouette.src.endsWith(src)) silhouette.src = src;
+  }
 
   /** Патроны и полоса перезарядки. Вызывается каждый кадр, поэтому DOM
    *  трогаем только когда что-то реально изменилось. */
@@ -666,8 +672,16 @@ export class UI {
     b.textContent = text;
   }
 
-  _btn(label, cls, onClick) {
-    const b = el('button', 'btn ' + (cls ?? ''), label);
+  /** @param icon — имя файла из assets/icons без расширения. */
+  _btn(label, cls, onClick, icon = null) {
+    const b = el('button', 'btn ' + (cls ?? ''));
+    if (icon) {
+      const img = el('img', 'icon');
+      img.src = `assets/icons/${icon}.png`;
+      img.alt = '';
+      b.append(img);
+    }
+    b.append(el('span', '', label));
     b.onclick = onClick;
     return b;
   }

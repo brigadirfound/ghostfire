@@ -213,6 +213,37 @@ test('every arena has its own music track and none of them is oversized', () => 
   assert.match(generator, /process\.env\.SUNO_API_KEY/);
 });
 
+test('UI assets are present, light and self-hosted', () => {
+  const icons = ['play', 'code', 'shop', 'editor', 'settings', 'heart', 'ammo', 'reload', 'ghost'];
+  for (const icon of icons) {
+    const bytes = readFileSync(new URL(`../assets/icons/${icon}.png`, import.meta.url));
+    assert.ok(bytes.length > 500 && bytes.length < 120_000, `${icon}.png весит ${bytes.length} Б`);
+    assert.equal(bytes.subarray(1, 4).toString('ascii'), 'PNG', `${icon}.png не png`);
+  }
+  // Силуэт в HUD должен быть у каждой пушки, иначе после подбора остаётся чужой.
+  for (const key of ['pistol', 'shotgun', 'railgun', 'smg', 'ar', 'sniper']) {
+    const bytes = readFileSync(new URL(`../assets/hud/${key}.png`, import.meta.url));
+    assert.ok(bytes.length > 500, `hud/${key}.png пуст`);
+  }
+  const fonts = ['russo-one-latin', 'russo-one-cyrillic', 'exo2-latin-600', 'exo2-cyrillic-600',
+    'exo2-latin-800i', 'exo2-cyrillic-800i'];
+  let fontBytes = 0;
+  for (const font of fonts) {
+    const bytes = readFileSync(new URL(`../assets/fonts/${font}.woff2`, import.meta.url));
+    assert.equal(bytes.subarray(0, 4).toString('ascii'), 'wOF2', `${font} не woff2`);
+    fontBytes += bytes.length;
+  }
+  assert.ok(fontBytes < 120_000, `шрифты весят ${Math.round(fontBytes / 1024)} КБ`);
+  // Лицензии рядом со шрифтами — обязательное условие OFL.
+  for (const license of ['OFL-RussoOne.txt', 'OFL-Exo2.txt']) {
+    assert.match(readFileSync(new URL(`../assets/fonts/${license}`, import.meta.url), 'utf8'), /SIL OPEN FONT LICENSE/i);
+  }
+  // Шрифты и иконки только локальные: внешние домены в UI запрещены модерацией.
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic|cdn\.jsdelivr/);
+  assert.match(html, /assets\/fonts\/russo-one-cyrillic\.woff2/);
+});
+
 test('platform locale decides the language only when the player never chose one', () => {
   assert.equal(normalizePlayerData({ settings: {} }).settings.lang, null);
   assert.equal(normalizePlayerData({ settings: { lang: 'xx' } }).settings.lang, null);

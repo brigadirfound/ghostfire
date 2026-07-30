@@ -96,3 +96,21 @@ Suno API моделью `suno-v5-5` инструментом `tools/gen_music.mj
 `item_id` каждой генерации и SHA-256 итоговых файлов записаны в
 `assets/music/PROVENANCE.md`. В игру попадают обрезанные до 72 секунд моно-версии
 72 kbps; оригиналы (стерео, ~2–5 МБ) не хранятся в репозитории.
+
+## Шрифты
+
+`assets/fonts/*.woff2` — **Russo One** (заголовки, кнопки, HUD) и **Exo 2**
+(текст и цифры), оба под SIL Open Font License 1.1. Тексты лицензий лежат
+рядом: `OFL-RussoOne.txt`, `OFL-Exo2.txt`. Файлы взяты из пакетов
+`@fontsource/russo-one` и `@fontsource/exo-2` и раздаются self-host — внешних
+запросов к Google Fonts в игре нет.
+
+## Иконки интерфейса
+
+`assets/icons/*.png` — сгенерированы через Visionary (`nano-banana-pro`)
+инструментом `tools/gen_icons.mjs`. Промпты, request id и SHA-256 записаны в
+`assets/icons/PROVENANCE.md`.
+
+`assets/hud/*.png` — силуэты пушек для HUD, отрендерены из тех же GLTF-моделей
+(Quaternius, CC0), что игрок держит в руках; генератор — `tools/viewmodel_bench.html`
+в режиме `?mode=icon`. Отдельной лицензии не требуют, наследуют CC0 моделей.
