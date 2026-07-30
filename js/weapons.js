@@ -9,14 +9,31 @@ import { raycastVoxels } from './map.js';
 // в протоколе записи (js/replay.js) вмещают до 8 значений.
 export const PISTOL = 0, SHOTGUN = 1, RAILGUN = 2, SMG = 3, AR = 4, SNIPER = 5;
 
+// recoil — подброс прицела в радианах: он реально уводит следующую пулю, поэтому
+// у точных пушек (рейл, снайперка) он почти нулевой — «выстрел в точку».
+// viewKick — чисто визуальный откат модели, на попадание не влияет: удар
+// чувствуется, но прицел остаётся там, куда игрок навёл.
+// mag/reload — размер магазина и секунды перезарядки; запас патронов бесконечен.
 export const WEAPONS = [
-  { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018, sound: 'pistol' },
-  { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05, falloff: true, sound: 'shotgun' },
-  { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.09, sound: 'railgun' },
-  { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012, sound: 'smg' },
-  { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03, sound: 'assault' },
-  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.12, sound: 'sniper' },
+  { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018, viewKick: 0.05, mag: 12, reload: 1.1, sound: 'pistol' },
+  { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05,  viewKick: 0.09, mag: 6,  reload: 1.7, falloff: true, sound: 'shotgun' },
+  { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.012, viewKick: 0.12, mag: 3, reload: 2, sound: 'railgun' },
+  { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012, viewKick: 0.035, mag: 30, reload: 1.4, sound: 'smg' },
+  { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03,  viewKick: 0.055, mag: 25, reload: 1.5, sound: 'assault' },
+  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.016, viewKick: 0.14, mag: 5,  reload: 1.9, sound: 'sniper' },
 ];
+
+// Куда ложится левая кисть на цевье. null — пушка одноручная (пистолет),
+// левая рука появляется только в анимации перезарядки.
+// Кисть ложится под ствол (пушка стоит на x≈0.3), z — по длине конкретной модели.
+export const LEFT_HAND_POSE = Object.freeze({
+  pistol: null,
+  shotgun: [0.27, -0.33, -0.8],
+  railgun: [0.27, -0.33, -0.74],
+  smg: [0.28, -0.34, -0.66],
+  ar: [0.27, -0.33, -0.78],
+  sniper: [0.27, -0.33, -0.88],
+});
 
 // ---------- 3D-модели пушек ----------
 // Пушки — единственные "гладкие" 3D-объекты в игре (контраст с воксельным миром —

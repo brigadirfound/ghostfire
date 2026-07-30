@@ -131,6 +131,7 @@ export class MobileControls {
     const fireButton = document.getElementById('btn-fire');
     const jumpButton = document.getElementById('btn-jump');
     const pauseButton = document.getElementById('btn-pause-mobile');
+    const reloadButton = document.getElementById('btn-reload');
     if (!stickZone || !lookZone || !base || !knob || !fireButton || !jumpButton) return;
 
     this._listen(stickZone, 'pointerdown', (event) => {
@@ -223,6 +224,12 @@ export class MobileControls {
     };
     bindHoldButton(fireButton, (pressed) => { this._firePressed = pressed; });
     bindHoldButton(jumpButton, (pressed) => { this._jumpPressed = pressed; });
+    // Перезарядка запускается по нажатию и снимается сама: держать не нужно.
+    if (reloadButton) {
+      bindHoldButton(reloadButton, (pressed) => {
+        if (pressed) this.player?.startReload();
+      });
+    }
 
     if (pauseButton) {
       this._listen(pauseButton, 'pointerdown', (event) => {

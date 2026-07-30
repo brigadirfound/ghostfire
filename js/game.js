@@ -630,6 +630,7 @@ function startRound() {
   G.ghost.reset();
   ui.setHP(100);
   ui.setWeapon(WEAPONS[0].key);
+  ui.setAmmo(G.player.ammoInfo);
   ui.setScore(G.score.me, G.score.foe);
   ui.banner(null);
   G.state = 'countdown';
@@ -937,6 +938,7 @@ function tick(dt) {
       ui.setWeapon(WEAPONS[G.player.weapon].key);
       ui.setCharging(G.player.charging);
       ui.setHP(G.player.hp);
+      ui.setAmmo(G.player.ammoInfo);
       updateTutorial(dt);
     }
   }

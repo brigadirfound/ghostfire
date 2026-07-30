@@ -5,15 +5,15 @@
 // Калибровка: первый скин магазина должен стоить 30–60 минут игры, а не
 // пары матчей. Проверяется симуляцией — node tools/sim_economy.mjs.
 export const BASE_REWARD = 8;
-export const WIN_REWARD = 10;
+export const WIN_REWARD = 8;
 export const SWEEP_BONUS = 4;
 export const FRIEND_BONUS = 12;
 export const FRIEND_DAILY_LIMIT = 3;
 
 // Множители награды по сложности. Единственный источник и для UI, и для
 // allow-list: раньше эти списки жили в трёх файлах независимо.
-export const BUILTIN_MULTS = Object.freeze([1, 1.15, 1.3, 1.45, 1.6]);
-export const CUSTOM_BOT_MULTS = Object.freeze([1, 1.3, 1.6]);
+export const BUILTIN_MULTS = Object.freeze([1, 1.25, 1.5, 1.75, 2]);
+export const CUSTOM_BOT_MULTS = Object.freeze([1, 1.5, 2]);
 const ALLOWED_MULTS = new Set([...BUILTIN_MULTS, ...CUSTOM_BOT_MULTS]);
 const MAX_WALLET_COINS = 1_000_000_000;
 

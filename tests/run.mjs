@@ -157,6 +157,32 @@ test('runtime manifest carries exact file checksums', () => {
   assert.ok(manifest.files.every((file) => /^[0-9a-f]{64}$/.test(file.sha256) && file.bytes > 0));
 });
 
+test('every weapon carries a magazine, reload time and a left-hand pose', () => {
+  // weapons.js тянет three, поэтому таблица разбирается из исходника.
+  const source = readFileSync(new URL('../js/weapons.js', import.meta.url), 'utf8');
+  const rows = source.match(/^\s*\{ id: [A-Z]+,[^\n]+\},$/gm) ?? [];
+  assert.equal(rows.length, 6, 'ожидалось шесть пушек в таблице');
+  const field = (row, name) => {
+    const found = row.match(new RegExp(`${name}:\\s*([\\d.]+)`));
+    return found ? Number(found[1]) : null;
+  };
+  const poses = source.match(/LEFT_HAND_POSE = Object\.freeze\(\{([^}]+)\}\)/s)?.[1] ?? '';
+  for (const row of rows) {
+    const key = row.match(/key: '([a-z]+)'/)?.[1];
+    assert.ok(key, `не разобран key: ${row}`);
+    assert.ok(field(row, 'mag') >= 1, `${key}: магазин не задан`);
+    assert.ok(field(row, 'reload') > 0, `${key}: время перезарядки не задано`);
+    assert.ok(field(row, 'viewKick') >= 0, `${key}: нет визуальной отдачи`);
+    assert.match(poses, new RegExp(`\\b${key}:`), `${key}: нет позы левой руки`);
+    // Рейл и снайперка бьют в точку: подброс прицела почти нулевой, удар
+    // отдаётся только моделью.
+    if (key === 'railgun' || key === 'sniper') {
+      assert.ok(field(row, 'recoil') <= 0.02, `${key}: слишком большой подброс прицела`);
+      assert.ok(field(row, 'viewKick') >= 0.1, `${key}: выстрел должен ощущаться моделью`);
+    }
+  }
+});
+
 test('platform locale decides the language only when the player never chose one', () => {
   assert.equal(normalizePlayerData({ settings: {} }).settings.lang, null);
   assert.equal(normalizePlayerData({ settings: { lang: 'xx' } }).settings.lang, null);

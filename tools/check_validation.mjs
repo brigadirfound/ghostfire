@@ -109,6 +109,26 @@ for (const file of fs.readdirSync(new URL('../maps/', import.meta.url))) {
   assert.equal(validateCustomMap(map).ok, true, file);
 }
 
+// Ссылка вызова строится только на числовом ID каталога: с пустым или битым
+// значением игра обязана отдать null и уйти в шеринг кодом.
+{
+  const { Platform: SharePlatform } = await import('../js/platform.js');
+  SharePlatform.isYandex = true;
+  const originalAppId = CONFIG.yandexAppId;
+  try {
+    for (const bad of ['', '  ', 'app/123', '12', 'абв', '1234567890123']) {
+      CONFIG.yandexAppId = bad;
+      assert.equal(SharePlatform.getShareUrl('CODE'), null, `appId=${JSON.stringify(bad)}`);
+    }
+    CONFIG.yandexAppId = '550479';
+    assert.equal(SharePlatform.getShareUrl('CODE'), 'https://yandex.ru/games/app/550479?payload=CODE');
+    assert.equal(SharePlatform.getShareUrl(''), null);
+  } finally {
+    CONFIG.yandexAppId = originalAppId;
+    SharePlatform.isYandex = false;
+  }
+}
+
 // Enabling products without an initialized SDK must never become a free-pack
 // development fallback.
 const storage = new Map();

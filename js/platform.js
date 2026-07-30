@@ -299,8 +299,11 @@ export const Platform = {
     if (typeof code !== 'string' || !code.length) return null;
     const encoded = encodeURIComponent(code);
     if (this.isYandex) {
-      if (!CONFIG.yandexAppId || encoded.length > CONFIG.yandexPayloadLimit) return null;
-      return `https://yandex.ru/games/app/${CONFIG.yandexAppId}?payload=${encoded}`;
+      // ID каталога — только цифры из URL страницы игры. Опечатка здесь дала бы
+      // битую ссылку вызова, поэтому лучше молча уйти в шеринг кодом.
+      const appId = String(CONFIG.yandexAppId ?? '');
+      if (!/^\d{4,12}$/.test(appId) || encoded.length > CONFIG.yandexPayloadLimit) return null;
+      return `https://yandex.ru/games/app/${appId}?payload=${encoded}`;
     }
     if (encoded.length > CONFIG.externalShareUrlLimit) return null;
     return `${CONFIG.shareBaseUrl}?ghost=${encoded}`;

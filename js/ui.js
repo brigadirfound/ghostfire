@@ -608,7 +608,30 @@ export class UI {
     v.style.opacity = '1';
     setTimeout(() => this.setHP(this._lastHp ?? 100), 120);
   }
-  setWeapon(key) { $('weapon-label').textContent = t(key); }
+  setWeapon(key) { $('weapon-name').textContent = t(key); }
+
+  /** Патроны и полоса перезарядки. Вызывается каждый кадр, поэтому DOM
+   *  трогаем только когда что-то реально изменилось. */
+  setAmmo(info) {
+    const current = Math.max(0, Math.round(finiteNumber(info?.current)));
+    const max = Math.max(0, Math.round(finiteNumber(info?.max)));
+    const reloading = Boolean(info?.reloading);
+    const progress = Math.min(1, Math.max(0, finiteNumber(info?.progress)));
+    const prev = this._ammoState;
+    if (prev && prev.current === current && prev.max === max && prev.reloading === reloading &&
+        (!reloading || Math.abs(prev.progress - progress) < 0.02)) return;
+    this._ammoState = { current, max, reloading, progress };
+
+    if (!prev || prev.current !== current) $('ammo-cur').textContent = String(current);
+    if (!prev || prev.max !== max) $('ammo-max').textContent = `/${max}`;
+    $('ammo').classList.toggle('low', max > 0 && current <= Math.max(1, Math.ceil(max * 0.25)));
+    $('reload-note').classList.toggle('hidden', !reloading);
+    const reloadButton = $('btn-reload');
+    if (reloadButton) reloadButton.classList.toggle('pending', reloading || (max > 0 && current === 0));
+    if (!reloading) return;
+    if (!prev?.reloading) $('reload-text').textContent = t('reloading');
+    $('reload-fill').style.width = `${Math.round(progress * 100)}%`;
+  }
   setScore(a, b) { $('score-mini').textContent = `${a} : ${b}`; }
   hitmarker() {
     const h = $('hitmarker');
