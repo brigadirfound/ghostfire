@@ -166,14 +166,21 @@ test('every weapon carries a magazine, reload time and a left-hand pose', () => 
     const found = row.match(new RegExp(`${name}:\\s*([\\d.]+)`));
     return found ? Number(found[1]) : null;
   };
-  const poses = source.match(/LEFT_HAND_POSE = Object\.freeze\(\{([^}]+)\}\)/s)?.[1] ?? '';
+  const hands = source.match(/LEFT_HAND_FORWARD = Object\.freeze\(\{([^}]+)\}\)/s)?.[1] ?? '';
+  const viewPoses = source.match(/VIEW_POSE = Object\.freeze\(\{(.+?)\n\}\)/s)?.[1] ?? '';
   for (const row of rows) {
     const key = row.match(/key: '([a-z]+)'/)?.[1];
     assert.ok(key, `не разобран key: ${row}`);
     assert.ok(field(row, 'mag') >= 1, `${key}: магазин не задан`);
     assert.ok(field(row, 'reload') > 0, `${key}: время перезарядки не задано`);
     assert.ok(field(row, 'viewKick') >= 0, `${key}: нет визуальной отдачи`);
-    assert.match(poses, new RegExp(`\\b${key}:`), `${key}: нет позы левой руки`);
+    assert.match(hands, new RegExp(`\\b${key}:`), `${key}: нет смещения левой руки`);
+    assert.match(viewPoses, new RegExp(`\\b${key}:\\s*\\{ scale:`), `${key}: нет позы вьюмодели`);
+    // Оптика только у снайперки: временная отладочная выдача её другой пушке
+    // не должна уехать в релиз.
+    const zoom = field(row, 'zoomFov');
+    if (key === 'sniper') assert.ok(zoom > 0 && zoom < 60, 'у снайперки нет рабочего zoomFov');
+    else assert.equal(zoom, null, `${key}: оптика должна быть только у снайперки`);
     // Рейл и снайперка бьют в точку: подброс прицела почти нулевой, удар
     // отдаётся только моделью.
     if (key === 'railgun' || key === 'sniper') {

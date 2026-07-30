@@ -156,7 +156,8 @@ import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }
   pmrem.dispose();
 });
 
-const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.05, 200);
+const BASE_FOV = 78;
+const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.05, 200);
 scene.add(camera);
 
 const ambient = new THREE.AmbientLight('#bcd4e8', 0.75);
@@ -414,16 +415,18 @@ document.addEventListener('mousemove', (e) => {
   if (!G.player) return;
   const inGame = G.state === 'playing' || G.state === 'countdown';
   if (!locked && !(lockFallback && inGame)) return;
-  const s = 0.0022 * settings.sensitivity;
+  const s = 0.0022 * settings.sensitivity * (G.player.aiming ? 0.45 : 1);
   G.player.addLook(e.movementX * s, e.movementY * s);
 });
 document.addEventListener('mousedown', (e) => {
-  if ((locked || lockFallback) && G.player && G.state === 'playing' && e.button === 0) {
-    G.player.input.fire = true;
-  }
+  if (!((locked || lockFallback) && G.player && G.state === 'playing')) return;
+  if (e.button === 0) G.player.input.fire = true;
+  if (e.button === 2) G.player.input.aim = true;
 });
 document.addEventListener('mouseup', (e) => {
-  if (G.player && e.button === 0) G.player.input.fire = false;
+  if (!G.player) return;
+  if (e.button === 0) G.player.input.fire = false;
+  if (e.button === 2) G.player.input.aim = false;
 });
 // сворачивание вкладки: пауза матча и звука (требование площадок)
 document.addEventListener('visibilitychange', () => {
@@ -939,9 +942,19 @@ function tick(dt) {
       ui.setCharging(G.player.charging);
       ui.setHP(G.player.hp);
       ui.setAmmo(G.player.ammoInfo);
+      ui.setScope(G.player.aiming);
       updateTutorial(dt);
     }
   }
+
+  // Плавный переход в оптику и обратно; вне матча всегда базовый обзор.
+  const aiming = G.state === 'playing' && G.player?.aiming === true;
+  const targetFov = aiming ? (WEAPONS[G.player.weapon].zoomFov ?? BASE_FOV) : BASE_FOV;
+  if (Math.abs(camera.fov - targetFov) > 0.05) {
+    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 14);
+    camera.updateProjectionMatrix();
+  }
+  if (!aiming && G.state !== 'playing') ui.setScope(false);
 
   if (G.state === 'roundend') {
     G.roundEndT -= dt;

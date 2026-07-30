@@ -1,0 +1,81 @@
+<!-- Стенд подбора позы вьюмодели: tools/ не попадает в релизный whitelist.
+     Открывать так: http://localhost:8123/tools/viewmodel_bench.html?w=sniper -->
+<meta charset="utf-8">
+<title>viewmodel bench</title>
+<style>html,body{margin:0;height:100%;background:#2b3542;overflow:hidden}
+#label{position:fixed;left:12px;top:10px;font:700 20px system-ui;color:#fff;text-shadow:2px 2px 0 #000}
+#cross{position:fixed;left:50%;top:50%;width:2px;height:22px;margin:-11px 0 0 -1px;background:#fff8}
+#cross2{position:fixed;left:50%;top:50%;width:22px;height:2px;margin:-1px 0 0 -11px;background:#fff8}</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "../vendor/three.module.js",
+    "three/addons/": "../vendor/addons/"
+  }
+}
+</script>
+<div id="label"></div><div id="cross"></div><div id="cross2"></div>
+<script type="module">
+import * as THREE from 'three';
+import { WEAPONS, VIEW_POSE, leftHandPoint, rightHandPoint, buildWeaponModel, preloadWeaponModels } from '../js/weapons.js';
+import { buildHand, HAND_REST, HAND_SCALE } from '../js/hands.js';
+
+const key = new URLSearchParams(location.search).get('w') ?? 'pistol';
+const weapon = WEAPONS.find(w => w.key === key) ?? WEAPONS[0];
+document.getElementById('label').textContent = `${weapon.key} · scale ${VIEW_POSE[weapon.key].scale}`;
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setSize(innerWidth, innerHeight);
+document.body.append(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#2b3542');
+scene.add(new THREE.AmbientLight('#bcd4e8', 0.75));
+const sun = new THREE.DirectionalLight('#fff4d6', 1.6);
+sun.position.set(3, 6, 2);
+scene.add(sun);
+// пол-ориентир на игровом расстоянии, чтобы масштаб читался
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshLambertMaterial({ color: '#4a7a35' }));
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -1.6;
+scene.add(floor);
+for (let i = 0; i < 5; i++) {
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshLambertMaterial({ color: '#8a6a45' }));
+  box.position.set(-3 + i * 1.6, -1.1, -6 - i);
+  scene.add(box);
+}
+
+const camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 200);
+scene.add(camera);
+
+const skin = await (await fetch('../skins/default.json')).json();
+await preloadWeaponModels();
+
+const pose = VIEW_POSE[weapon.key];
+const model = buildWeaponModel(weapon.id, skin);
+model.scale.setScalar(pose.scale);
+model.position.set(...pose.pos);
+model.rotation.set(...pose.rot);
+camera.add(model);
+
+const right = buildHand(skin);
+right.scale.setScalar(HAND_SCALE.right);
+right.position.set(...rightHandPoint(weapon.key));
+right.rotation.set(HAND_REST.right.x, HAND_REST.right.y, HAND_REST.right.z);
+camera.add(right);
+
+const leftPose = leftHandPoint(weapon.key);
+if (leftPose) {
+  const left = buildHand(skin);
+  left.scale.setScalar(HAND_SCALE.left);
+  left.position.set(...leftPose);
+  left.rotation.set(HAND_REST.left.x, HAND_REST.left.y, HAND_REST.left.z);
+  camera.add(left);
+}
+
+// Модель добавляется в holder асинхронно, поэтому рендерим постоянно.
+const tick = () => { renderer.render(scene, camera); requestAnimationFrame(tick); };
+tick();
+setTimeout(() => { window.__benchReady = true; }, 400);
+</script>

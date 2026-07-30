@@ -14,26 +14,59 @@ export const PISTOL = 0, SHOTGUN = 1, RAILGUN = 2, SMG = 3, AR = 4, SNIPER = 5;
 // viewKick — чисто визуальный откат модели, на попадание не влияет: удар
 // чувствуется, но прицел остаётся там, куда игрок навёл.
 // mag/reload — размер магазина и секунды перезарядки; запас патронов бесконечен.
+// zoomFov — угол обзора в прицеливании; есть только у оптики снайперки.
 export const WEAPONS = [
   { id: PISTOL,  key: 'pistol',  damage: 12, cooldown: 0.28, pellets: 1, spread: 0.008, range: 80,  charge: 0, recoil: 0.018, viewKick: 0.05, mag: 12, reload: 1.1, sound: 'pistol' },
   { id: SHOTGUN, key: 'shotgun', damage: 7,  cooldown: 0.85, pellets: 8, spread: 0.085, range: 32,  charge: 0, recoil: 0.05,  viewKick: 0.09, mag: 6,  reload: 1.7, falloff: true, sound: 'shotgun' },
   { id: RAILGUN, key: 'railgun', damage: 100, cooldown: 1.3, pellets: 1, spread: 0,     range: 120, charge: 0.8, recoil: 0.012, viewKick: 0.12, mag: 3, reload: 2, sound: 'railgun' },
   { id: SMG,     key: 'smg',     damage: 9,  cooldown: 0.09, pellets: 1, spread: 0.024, range: 55,  charge: 0, recoil: 0.012, viewKick: 0.035, mag: 30, reload: 1.4, sound: 'smg' },
   { id: AR,      key: 'ar',      damage: 18, cooldown: 0.18, pellets: 1, spread: 0.014, range: 90,  charge: 0, recoil: 0.03,  viewKick: 0.055, mag: 25, reload: 1.5, sound: 'assault' },
-  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.016, viewKick: 0.14, mag: 5,  reload: 1.9, sound: 'sniper' },
+  { id: SNIPER,  key: 'sniper',  damage: 80, cooldown: 1.6,  pellets: 1, spread: 0,     range: 150, charge: 0, recoil: 0.016, viewKick: 0.14, mag: 5,  reload: 1.9, zoomFov: 30, sound: 'sniper' },
 ];
+
+// Поза вьюмодели в руке: масштаб, смещение от камеры и доворот. Отдельно от
+// TARGET_LENGTH, потому что мировые модели на земле должны остаться прежними.
+export const VIEW_POSE = Object.freeze({
+  pistol:  { scale: 1.15, pos: [0.2, -0.22, -0.5], rot: [0, 0.06, 0] },
+  shotgun: { scale: 0.8, pos: [0.27, -0.27, -0.66], rot: [0, 0.05, 0] },
+  railgun: { scale: 0.75, pos: [0.3, -0.3, -0.5], rot: [0, 0, 0] },
+  smg:     { scale: 1, pos: [0.22, -0.24, -0.55], rot: [0, 0.06, 0] },
+  ar:      { scale: 0.8, pos: [0.26, -0.27, -0.55], rot: [0, 0.04, 0] },
+  // Длинная модель уходила прикладом за камеру, а стволом — за правый край.
+  sniper:  { scale: 0.62, pos: [0.24, -0.22, -0.7], rot: [0, 0.08, 0] },
+});
 
 // Куда ложится левая кисть на цевье. null — пушка одноручная (пистолет),
 // левая рука появляется только в анимации перезарядки.
-// Кисть ложится под ствол (пушка стоит на x≈0.3), z — по длине конкретной модели.
-export const LEFT_HAND_POSE = Object.freeze({
+// Насколько левая кисть уходит вперёд от центра пушки, в метрах. Хранится
+// смещением, а не абсолютной точкой: иначе при смене VIEW_POSE рука повисает
+// отдельно от цевья. null — пушка одноручная, рука появляется на перезарядке.
+export const LEFT_HAND_FORWARD = Object.freeze({
   pistol: null,
-  shotgun: [0.28, -0.3, -0.8],
-  railgun: [0.28, -0.3, -0.74],
-  smg: [0.29, -0.31, -0.66],
-  ar: [0.28, -0.3, -0.78],
-  sniper: [0.28, -0.3, -0.88],
+  shotgun: 0.28,
+  railgun: 0.24,
+  smg: 0.18,
+  ar: 0.28,
+  sniper: 0.3,
 });
+
+// Грип относительно центра модели: чуть правее, ниже и ближе к игроку.
+const RIGHT_HAND_OFFSET = Object.freeze([0.03, -0.06, 0.08]);
+
+/** Точка правой кисти: держит грип, поэтому едет вместе с позой оружия. */
+export function rightHandPoint(key) {
+  const [x, y, z] = VIEW_POSE[key].pos;
+  const [dx, dy, dz] = RIGHT_HAND_OFFSET;
+  return [x + dx, y + dy, z + dz];
+}
+
+/** Точка левой кисти для пушки: под стволом, со сдвигом наружу от грипа. */
+export function leftHandPoint(key) {
+  const forward = LEFT_HAND_FORWARD[key];
+  if (forward == null) return null;
+  const [x, y, z] = VIEW_POSE[key].pos;
+  return [x - 0.02, y, z - forward];
+}
 
 // ---------- 3D-модели пушек ----------
 // Пушки — единственные "гладкие" 3D-объекты в игре (контраст с воксельным миром —
@@ -124,6 +157,40 @@ function buildCustomModel(parts, colors) {
 }
 
 /**
+ * Оптика снайперки: труба с двумя кольцами и линзой. Размеры — в игровых
+ * метрах, потому что группа кладётся рядом с моделью, а не внутрь неё.
+ */
+function buildScope(colors) {
+  const g = new THREE.Group();
+  const body = colors.body ?? '#888888';
+  const grip = colors.grip ?? '#222222';
+  const accent = colors.accent ?? '#ff8800';
+  const own = (mesh) => {
+    mesh.castShadow = true;
+    mesh.userData.weaponOwnsMaterial = true;
+    mesh.userData.weaponOwnsGeometry = true;
+    return mesh;
+  };
+  const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({
+    color, metalness: 0.55, roughness: 0.4, ...extra,
+  });
+  const tube = own(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.52, 12), mat(body)));
+  tube.rotation.x = Math.PI / 2;
+  tube.position.set(0, 0.19, 0.08);
+  const lens = own(new THREE.Mesh(new THREE.CircleGeometry(0.048, 12),
+    mat(accent, { emissive: accent, emissiveIntensity: 0.6 })));
+  lens.position.set(0, 0.19, 0.342);
+  lens.rotation.y = Math.PI;
+  for (const z of [-0.08, 0.22]) {
+    const ring = own(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.045), mat(grip)));
+    ring.position.set(0, 0.12, z);
+    g.add(ring);
+  }
+  g.add(tube, lens);
+  return g;
+}
+
+/**
  * Модель пушки. ВАЖНО: загрузка GLTF асинхронна — до готовности возвращается
  * пустая THREE.Group, которая наполняется геометрией по промису (одна и та же
  * ссылка на группу, можно сразу добавлять в сцену/камеру).
@@ -138,6 +205,9 @@ export function buildWeaponModel(weaponId, skin) {
 
   const holder = new THREE.Group();
   holder.userData.weaponHolder = true;
+  // Оптика живёт в holder, а не внутри painted: там свой масштаб нормализации,
+  // и труба ушла бы в микроскопический размер.
+  if (key === 'sniper') holder.add(buildScope(colors));
   loadRawModel(key).then((raw) => {
     const painted = paintClone(raw, colors);
     if (holder.userData.disposed) disposeWeaponModel(painted);

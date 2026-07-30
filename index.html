@@ -69,6 +69,12 @@
   #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
   #crosshair.charging::before, #crosshair.charging::after { background: var(--accent2); }
 
+  /* Оптика снайперки: затемнённые поля + тонкое перекрестие по центру. */
+  #scope { position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 26%, rgba(0,0,0,.72) 34%, #000 46%); }
+  #scope-h, #scope-v { position: absolute; background: rgba(255,255,255,.45); }
+  #scope-h { left: 18%; right: 18%; top: 50%; height: 1px; }
+  #scope-v { top: 12%; bottom: 12%; left: 50%; width: 1px; }
   #hp-bar { position: absolute; left: calc(20px + var(--safe-left)); bottom: calc(20px + var(--safe-bottom)); width: 220px; }
   #hp-fill { height: 22px; background: linear-gradient(90deg, #ff3322, #ff7744); border-radius: 4px; transition: width .15s; box-shadow: 0 0 8px rgba(255,60,30,.6); }
   #hp-bar .frame { border: 3px solid #fff3; border-radius: 6px; padding: 2px; background: #0008; }
@@ -122,6 +128,7 @@
   #btn-jump { right: calc(140px + var(--safe-right)); bottom: calc(32px + var(--safe-bottom)); width: 68px; height: 68px; font-size: 13px; }
   #btn-reload { right: calc(30px + var(--safe-right)); bottom: calc(200px + var(--safe-bottom)); width: 62px; height: 62px; font-size: 13px; }
   #btn-reload.pending { border-color: var(--accent2); color: var(--accent2); }
+  #btn-aim { right: calc(30px + var(--safe-right)); bottom: calc(278px + var(--safe-bottom)); width: 62px; height: 62px; font-size: 13px; }
   #btn-pause-mobile { right: calc(18px + var(--safe-right)); top: calc(18px + var(--safe-top)); width: 52px; height: 52px; font-size: 22px; }
 </style>
 <script type="importmap">
@@ -147,6 +154,7 @@
 <div id="hud" class="hidden">
   <div id="damage-vignette"></div>
   <div id="crosshair"></div>
+  <div id="scope" class="hidden"><div id="scope-h"></div><div id="scope-v"></div></div>
   <div id="hitmarker"></div>
   <div id="hp-bar"><div id="hp-num">100</div><div class="frame"><div id="hp-fill" style="width:100%"></div></div></div>
   <div id="weapon-label">
@@ -169,6 +177,7 @@
   <button type="button" class="mbtn" id="btn-fire" aria-pressed="false" data-i18n="fire" data-i18n-aria-label="fire">FIRE</button>
   <button type="button" class="mbtn" id="btn-jump" aria-pressed="false" data-i18n="jump" data-i18n-aria-label="jump">JMP</button>
   <button type="button" class="mbtn" id="btn-reload" data-i18n="reloadShort" data-i18n-aria-label="reload">RLD</button>
+  <button type="button" class="mbtn hidden" id="btn-aim" aria-pressed="false" data-i18n="aimShort" data-i18n-aria-label="aim">ОПТ</button>
   <button type="button" class="mbtn" id="btn-pause-mobile" data-i18n-aria-label="pause" aria-label="Пауза">Ⅱ</button>
 </div>
 

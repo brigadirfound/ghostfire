@@ -1,8 +1,9 @@
 // FPS-контроллер: резкое аркадное движение без инерции, распрыжка разрешена.
 import * as THREE from 'three';
 import { moveAABB } from './map.js';
-import { WEAPONS, RAILGUN, LEFT_HAND_POSE, buildWeaponModel, disposeWeaponModel } from './weapons.js';
+import { WEAPONS, RAILGUN, VIEW_POSE, leftHandPoint, rightHandPoint, buildWeaponModel, disposeWeaponModel } from './weapons.js';
 import { Sound } from './audio.js';
+import { buildHand, HAND_REST, HAND_SCALE } from './hands.js';
 
 // Подброс прицела гаснет за ~0.4 с, откат модели держится дольше — он и даёт
 // ощущение удара, ничего не сдвигая в прицеливании.
@@ -10,14 +11,6 @@ const RECOIL_RECOVERY = 7;
 const VIEW_KICK_RECOVERY = 0.9;
 // Куда приходит левая кисть у пистолета — только на время перезарядки.
 const PISTOL_RELOAD_HAND = [0.2, -0.5, -0.72];
-
-// Базовый разворот кистей. Без него предплечье шло строго вдоль ствола и рука
-// выглядела бруском: теперь она приходит снизу-сбоку под ~45°, как у живого
-// хвата. y разводит руки наружу, x опускает локоть, z доворачивает кулак.
-const HAND_REST = Object.freeze({
-  right: { x: 0.5, y: 0.34, z: -0.16 },
-  left: { x: 0.58, y: -0.46, z: 0.18 },
-});
 
 const ease = (t) => {
   const k = Math.min(1, Math.max(0, t));
@@ -66,28 +59,31 @@ export class Player {
     this.ammo = WEAPONS.map(w => w.mag);
     this.reloadT = 0;         // >0 — идёт перезарядка
     this.reloadTotal = 0;
+    this.aiming = false;      // прицеливание в оптику (только снайперка)
 
     // инпут (клавиатура пишет сюда же, куда и мобильный модуль)
-    this.input = { move: new THREE.Vector2(), jump: false, fire: false, reload: false };
+    this.input = { move: new THREE.Vector2(), jump: false, fire: false, reload: false, aim: false };
     this._keys = new Set();
 
     // view-модели всех пушек, показываем текущую
     this.viewModels = WEAPONS.map(w => {
       const m = buildWeaponModel(w.id, this.skin);
-      m.scale.setScalar(0.75);
-      m.position.set(0.3, -0.3, -0.5);
+      const pose = VIEW_POSE[w.key];
+      m.scale.setScalar(pose.scale);
+      m.position.set(...pose.pos);
+      m.rotation.set(...pose.rot);
       m.visible = false;
       this.camera.add(m);
       return m;
     });
     // кисть у грипа — только кулак+манжета, не вся рука, чтобы не перекрывать экран
-    this.hand = this._buildHand();
-    this.hand.scale.setScalar(0.78); // на 0.32 м от глаза кулак занимал треть кадра
+    this.hand = buildHand(this.skin);
+    this.hand.scale.setScalar(HAND_SCALE.right);
     this.hand.position.set(0.29, -0.31, -0.46);
     this.camera.add(this.hand);
     // левая кисть держит цевьё двуручных пушек и подаёт магазин при перезарядке
-    this.handL = this._buildHand();
-    this.handL.scale.setScalar(0.72); // дальняя кисть не должна спорить с правой
+    this.handL = buildHand(this.skin);
+    this.handL.scale.setScalar(HAND_SCALE.left);
     this.handL.visible = false;
     this.camera.add(this.handL);
     this._vmKick = 0;
@@ -98,29 +94,6 @@ export class Player {
     // статистика раунда
     this.shotsFired = 0;
     this.shotsHit = 0;
-  }
-
-  /** Маленький кулак+манжета у грипа — воксельный, цвета кожи/рукава скина. */
-  _buildHand() {
-    const g = new THREE.Group();
-    const skinMat = new THREE.MeshLambertMaterial({ color: this.skin.body.arms });
-    const sleeveMat = new THREE.MeshLambertMaterial({ color: this.skin.body.torso });
-    // яркая полоска цветом трассера — чтобы кисть не сливалась с тёмными
-    // пушками/скинами (Пустота и т.п.), где кожа/торс почти чёрные
-    const trimMat = new THREE.MeshBasicMaterial({ color: this.skin.tracer });
-    const fist = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.22), skinMat);
-    fist.position.set(0, 0, 0.03);
-    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.16), sleeveMat);
-    sleeve.position.set(0, -0.03, 0.21);
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.035, 0.05), trimMat);
-    trim.position.set(0, 0.055, 0.15);
-    // Предплечье: без него кисть читалась обрубком, торчащим вдоль ствола.
-    // Вместе с наклоном группы (HAND_REST) даёт руку, приходящую снизу-сбоку.
-    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.34), sleeveMat);
-    forearm.position.set(0, -0.05, 0.44);
-    fist.castShadow = sleeve.castShadow = forearm.castShadow = true;
-    g.add(fist, sleeve, trim, forearm);
-    return g;
   }
 
   _setupKeyboard() {
@@ -166,6 +139,8 @@ export class Player {
     this.input.fire = false;
     this.input.jump = false;
     this.input.reload = false;
+    this.input.aim = false;
+    this.aiming = false;
     this.shotsFired = 0;
     this.shotsHit = 0;
   }
@@ -179,6 +154,7 @@ export class Player {
     // Смена пушки прерывает перезарядку: магазин остаётся в том состоянии,
     // в котором был, — вернувшись к пушке, игрок дозаряжает её заново.
     this.reloadT = this.reloadTotal = 0;
+    this.aiming = false;
     if (refill) this.ammo[id] = WEAPONS[id].mag; // подобранная пушка всегда полная
     return true;
   }
@@ -305,6 +281,9 @@ export class Player {
     // Пустой магазин уходит в перезарядку сам, как только игрок жмёт огонь.
     if (this.input.fire && this.reloadT === 0 && this.ammo[this.weapon] <= 0) this.startReload();
 
+    // --- прицеливание: только оптика снайперки, и не во время перезарядки ---
+    this.aiming = Boolean(w.zoomFov) && this.input.aim && this.reloadT === 0;
+
     // --- отдача и view-модель ---
     // Прицел возвращается экспоненциально: подброс виден, но следующая пуля
     // уходит туда же, куда игрок смотрит.
@@ -331,6 +310,14 @@ export class Player {
   _poseViewModel() {
     const vm = this.viewModels[this.weapon];
     const key = WEAPONS[this.weapon].key;
+    // В оптике модель и кисти убираются: игрок смотрит сквозь прицел.
+    if (this.aiming) {
+      vm.visible = false;
+      this.hand.visible = this.handL.visible = false;
+      return;
+    }
+    vm.visible = true;
+    this.hand.visible = true;
     const kick = this._vmKick;
     const bobY = Math.sin(this._bobT) * 0.012;
     const bobX = Math.cos(this._bobT * 0.5) * 0.006;
@@ -349,12 +336,14 @@ export class Player {
 
     // Связка одновременно поднимается и отводится от камеры: кулаки сидят у
     // near-плана, и без отвода они раздуваются на пол-экрана.
-    vm.position.set(0.3 - lift * 0.04, -0.3 + bobY + rise, -0.5 + kick - lift * 0.12);
-    vm.rotation.set(tilt - kick * 1.4, 0, lift * 0.3);
-    this.hand.position.set(0.29 + bobX - lift * 0.04, -0.31 + bobY + rise, -0.46 + kick - lift * 0.12);
+    const base = VIEW_POSE[key];
+    vm.position.set(base.pos[0] - lift * 0.04, base.pos[1] + bobY + rise, base.pos[2] + kick - lift * 0.12);
+    vm.rotation.set(base.rot[0] + tilt - kick * 1.4, base.rot[1], base.rot[2] + lift * 0.3);
+    const grip = rightHandPoint(key);
+    this.hand.position.set(grip[0] + bobX - lift * 0.04, grip[1] + bobY + rise, grip[2] + kick - lift * 0.12);
     this.hand.rotation.set(HAND_REST.right.x + tilt * 0.6, HAND_REST.right.y, HAND_REST.right.z + lift * 0.3);
 
-    const pose = LEFT_HAND_POSE[key];
+    const pose = leftHandPoint(key);
     // У пистолета левой руки в кадре нет — она появляется только чтобы подать
     // магазин, и уходит вместе с анимацией.
     this.handL.visible = Boolean(pose) || active;

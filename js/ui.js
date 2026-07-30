@@ -640,6 +640,14 @@ export class UI {
     h.classList.add('pop');
   }
   setCharging(on) { $('crosshair').classList.toggle('charging', on); }
+
+  /** Оптика снайперки: перекрестие прицела вместо обычного. */
+  setScope(on) {
+    if (this._scopeOn === on) return;
+    this._scopeOn = on;
+    $('scope').classList.toggle('hidden', !on);
+    $('crosshair').classList.toggle('hidden', on);
+  }
   countdown(n) {
     const c = $('countdown');
     if (n === null) { c.classList.add('hidden'); return; }

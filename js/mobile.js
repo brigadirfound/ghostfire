@@ -1,5 +1,6 @@
 // Мобильное управление с переключением модальности для гибридных устройств.
 import * as THREE from 'three';
+import { WEAPONS } from './weapons.js';
 
 const primaryCoarse = window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
 const anyFine = window.matchMedia?.('(any-pointer: fine)')?.matches ?? false;
@@ -21,6 +22,7 @@ export class MobileControls {
     this._stickCenter = { x: 0, y: 0 };
     this._look = { x: 0, y: 0 };
     this._firePressed = false;
+    this._aimPressed = false;
     this._jumpPressed = false;
     this._paused = false;
     this._disposed = false;
@@ -106,6 +108,7 @@ export class MobileControls {
       pauseButton.releasePointerCapture(this._pauseId);
     }
     this._firePressed = false;
+    this._aimPressed = false;
     this._jumpPressed = false;
     this._stickId = null;
     this._lookId = null;
@@ -120,6 +123,7 @@ export class MobileControls {
       this.player.input.move?.set?.(0, 0);
       this.player.input.fire = false;
       this.player.input.jump = false;
+      this.player.input.aim = false;
     }
   }
 
@@ -132,6 +136,7 @@ export class MobileControls {
     const jumpButton = document.getElementById('btn-jump');
     const pauseButton = document.getElementById('btn-pause-mobile');
     const reloadButton = document.getElementById('btn-reload');
+    const aimButton = document.getElementById('btn-aim');
     if (!stickZone || !lookZone || !base || !knob || !fireButton || !jumpButton) return;
 
     this._listen(stickZone, 'pointerdown', (event) => {
@@ -230,6 +235,8 @@ export class MobileControls {
         if (pressed) this.player?.startReload();
       });
     }
+    // Прицел держат пальцем, как и огонь.
+    if (aimButton) bindHoldButton(aimButton, (pressed) => { this._aimPressed = pressed; });
 
     if (pauseButton) {
       this._listen(pauseButton, 'pointerdown', (event) => {
@@ -273,6 +280,14 @@ export class MobileControls {
     this.player.input.fire = this.settings.fireMode === 'auto'
       ? this._aimOnGhost(6 * Math.PI / 180)
       : this._firePressed;
+    this.player.input.aim = this._aimPressed;
+    // Кнопка оптики есть только у пушки с прицелом.
+    const aimButton = document.getElementById('btn-aim');
+    if (aimButton) {
+      const scoped = Boolean(WEAPONS[this.player.weapon]?.zoomFov);
+      aimButton.classList.toggle('hidden', !scoped);
+      if (!scoped && this._aimPressed) this._aimPressed = false;
+    }
   }
 
   _aimOnGhost(cone) {
